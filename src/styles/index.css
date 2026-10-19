@@ -1,0 +1,151 @@
+@import 'tailwindcss';
+
+/*
+ * TinyWorld design tokens.
+ * Warm, playful indie-game palette from the product spec.
+ */
+@theme {
+  --color-forest: #386641;
+  --color-leaf: #6a994e;
+  --color-cream: #f2e8cf;
+  --color-sun: #f2cc8f;
+  --color-deep: #1f352b;
+  --color-ink: #14251d;
+
+  /*
+   * Secondary text colour.
+   * Alpha variants of --color-deep drop below the 4.5:1 WCAG AA contrast
+   * ratio when composited over the cream panels, so secondary text uses this
+   * solid token instead (measured at 6.4:1 against #F2E8CF).
+   */
+  --color-muted: #3f5748;
+
+  /* Secondary text on the dark HUD panels. 7.9:1 against --color-deep. */
+  --color-muted-dark: #c7d3c2;
+
+  --color-forest-soft: #4b7f52;
+  --color-leaf-soft: #8bbd6f;
+  --color-cream-dim: #e6d9b8;
+  --color-sun-deep: #e0ab5c;
+
+  --font-display: 'Trebuchet MS', 'Segoe UI', ui-rounded, system-ui, sans-serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+
+  --radius-panel: 1.25rem;
+
+  --shadow-soft: 0 10px 30px -12px rgb(31 53 43 / 0.45);
+  --shadow-lift: 0 18px 40px -16px rgb(31 53 43 / 0.55);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-deep);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  /* Visible, high-contrast focus ring for keyboard users. */
+  :focus-visible {
+    outline: 3px solid var(--color-sun-deep);
+    outline-offset: 2px;
+    border-radius: 0.4rem;
+  }
+
+  /* Never remove focus outlines outright — only for non-interactive surfaces. */
+  [tabindex='-1']:focus {
+    outline: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background-color: var(--color-sun);
+    color: var(--color-ink);
+  }
+}
+
+@layer components {
+  .tw-panel {
+    background-color: color-mix(in srgb, var(--color-cream) 92%, white);
+    border: 1px solid color-mix(in srgb, var(--color-forest) 22%, transparent);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .tw-panel-deep {
+    background-color: color-mix(in srgb, var(--color-deep) 88%, black);
+    border: 1px solid color-mix(in srgb, var(--color-leaf) 28%, transparent);
+    border-radius: var(--radius-panel);
+    color: var(--color-cream);
+    box-shadow: var(--shadow-lift);
+  }
+
+  /* Screen-reader-only text that becomes visible when focused (skip link). */
+  .tw-sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* Honour the OS reduced-motion preference across all CSS-driven motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Utility honoured by the app when the user enables reduced motion manually. */
+html[data-reduced-motion='true'] *,
+html[data-reduced-motion='true'] *::before,
+html[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* Thin, warm scrollbars for panels. */
+.tw-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-leaf) 55%, transparent) transparent;
+}
+.tw-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.tw-scroll::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--color-leaf) 55%, transparent);
+  border-radius: 999px;
+}
