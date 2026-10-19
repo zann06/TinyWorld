@@ -14,7 +14,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],
-  retries: process.env['CI'] ? 2 : 0,
+  retries: process.env['CI'] ? 1 : 0,
   // SwiftShader renders WebGL entirely on the CPU. Running several browsers in
   // parallel starves the machine and causes launch timeouts, so the suite runs
   // serially by default. Raise it deliberately with PLAYWRIGHT_WORKERS.
@@ -23,8 +23,11 @@ export default defineConfig({
     ? [['github'], ['html', { open: 'never' }]]
     : [['list'], ['html', { open: 'never' }]],
   // Generous: headless SwiftShader renders WebGL on the CPU, so first paint
-  // and interactions are far slower than on real hardware.
-  timeout: 120_000,
+  // and interactions are far slower than on real hardware. Tests that build the
+  // scene twice (reload, island travel) sit close to two minutes even on a fast
+  // developer machine, so the budget leaves real headroom rather than hiding a
+  // hang.
+  timeout: 240_000,
   expect: { timeout: 15_000 },
 
   use: {

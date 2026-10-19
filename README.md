@@ -339,7 +339,8 @@ static file server.
 - **Position is saved every four seconds.** Reloading within that window returns
   you to where you left off, which is not always the exact last step.
 - **Headless browser testing is slow.** CI renders WebGL with SwiftShader on the
-  CPU, so the end-to-end suite runs serially and takes around twenty minutes.
+  CPU, so the end-to-end suite runs serially. Tests pin the lowest quality preset
+  so the software renderer spends its budget on behaviour rather than shadows.
 
 ## Contributing
 
