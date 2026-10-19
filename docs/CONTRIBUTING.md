@@ -36,6 +36,14 @@ Useful commands:
 
 The end-to-end suite needs a browser once: `npx playwright install chromium`.
 
+Rendered screenshots are not byte-identical between runs, so re-capturing every
+shot turns a one-image change into a seven-image diff. Set `SCREENSHOT_ONLY` to a
+shot-name prefix to regenerate just the ones you touched:
+
+```bash
+SCREENSHOT_ONLY=cairnmoor npm run screenshots
+```
+
 ## Before you open a pull request
 
 ```bash

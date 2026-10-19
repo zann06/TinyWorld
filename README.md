@@ -27,13 +27,25 @@ Switch islands from the header at any time; progress is kept separately for each
 
 ## Screenshots
 
-| Exploration                                                      | Dusk                                                    |
-| ---------------------------------------------------------------- | ------------------------------------------------------- |
-| ![Exploring the island](docs/screenshots/island-exploration.png) | ![The island at dusk](docs/screenshots/island-dusk.png) |
+<table>
+  <tr>
+    <td><img src="docs/screenshots/island-exploration.png" alt="Exploring Greenhaven Island" /></td>
+    <td><img src="docs/screenshots/island-dusk.png" alt="Greenhaven Island at dusk" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/island-night.png" alt="Greenhaven Island at night" /></td>
+    <td><img src="docs/screenshots/mobile-exploration.png" alt="TinyWorld on mobile" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/cairnmoor-wide.png" alt="Cairnmoor Isle" /></td>
+    <td><img src="docs/screenshots/cairnmoor-dusk.png" alt="Cairnmoor Isle at dusk" /></td>
+  </tr>
+</table>
 
-| Night                                                     | Mobile                                                          |
-| --------------------------------------------------------- | --------------------------------------------------------------- |
-| ![The island at night](docs/screenshots/island-night.png) | ![TinyWorld on mobile](docs/screenshots/mobile-exploration.png) |
+Greenhaven Island — the four images on the top two rows — is the warm, sheltered
+one, with its lighthouse, cottage, garden and coast path. Cairnmoor Isle, on the
+bottom row, is smaller, higher and rockier: a beached wreck, a stone cairn and a
+boathouse among standing stones.
 
 ## Features
 
