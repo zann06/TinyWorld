@@ -180,11 +180,21 @@ between islands never loses either one's position.
 
 ## Adding a landmark
 
-1. Add an entry to `WORLD_OBJECTS` in `src/data/objects.ts`.
+1. Add an entry to the island's list in `src/data/islands/<island>-objects.ts`.
 2. Build the model as a component in `src/world/objects/ObjectVisual.tsx`,
    with its base at `y = 0`, and register it in `src/world/objects/visual-registry.ts`.
-3. If it should block movement, add a radius to `OBSTACLES` in `src/data/world.ts`.
-4. Run `npm test`. A missing visual fails the suite.
+3. If it should block movement, add a radius to that island's `obstacles` in
+   `src/data/islands.ts`.
+4. Run `npm test`. A missing visual, a landmark below the waterline, or an id
+   claimed by two islands all fail the suite.
 
 The scene, journal, directory, interaction prompt, progress and persistence all
 pick it up with no further changes.
+
+## Adding an island
+
+Add one entry to `ISLANDS` in `src/data/islands.ts`. It must supply a unique id,
+a coastline, a height field, a palette, a spawn point, a footpath, obstacles,
+scatter clusters and at least one landmark. Nothing outside that file — and the
+new landmark file — needs to change: the switcher, storage, the directory and the
+scene all read from the island definition.

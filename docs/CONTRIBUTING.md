@@ -67,14 +67,21 @@ if a rule is wrong, change the rule and explain why in the pull request.
 
 The short version (full detail in `docs/ARCHITECTURE.md`):
 
-1. Add an entry to `WORLD_OBJECTS` in `src/data/objects.ts` with a stable `id`,
-   a `visual` key, a position, a radius and an action label.
+1. Add an entry to the island's list in `src/data/islands/<island>-objects.ts`
+   with a stable `id`, a `visual` key, a position, a radius and an action label.
 2. Build the model as a component in `src/world/objects/ObjectVisual.tsx`, base
    at `y = 0`, in the palette from `src/world/objects/materials.ts`.
 3. Register it in `src/world/objects/visual-registry.ts`.
-4. Add a radius to `OBSTACLES` in `src/data/world.ts` if it should block
-   movement, and clear the surrounding vegetation automatically happens.
+4. Add a radius to that island's `obstacles` in `src/data/islands.ts` if it
+   should block movement, and clear the surrounding vegetation automatically
+   happens.
 5. Verify with `npm test` and a screenshot.
+
+## Adding an island
+
+Add one entry to `ISLANDS` in `src/data/islands.ts` and give it a landmark list
+under `src/data/islands/`. The switcher, per-island storage, the directory and
+the scene all read from that definition, so nothing else needs to change.
 
 ## Assets
 
