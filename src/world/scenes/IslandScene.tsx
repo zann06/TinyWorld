@@ -1,13 +1,16 @@
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
+import type { IslandDefinition } from '@/types'
 import { IslandPath, SkyDome, Terrain, Vegetation, Water } from '@/world/scenes/Environment'
 import { InteractiveObjects } from '@/world/objects/InteractiveObjects'
 import { TimeBasedLighting } from '@/world/lighting/TimeLighting'
 import { LIGHTING_PRESETS } from '@/world/lighting/lighting-presets'
 import { PlayerAvatar } from '@/world/characters/PlayerAvatar'
 import { CameraRig } from '@/world/camera/CameraRig'
+import { createTerrain } from '@/world/terrain/terrain'
 import { useSettingsStore } from '@/store/settings-store'
 
-export interface GreenhavenSceneProps {
+export interface IslandSceneProps {
+  island: IslandDefinition
   shadows: boolean
   inputEnabled: boolean
   onSelect: (id: string | null) => void
@@ -15,20 +18,26 @@ export interface GreenhavenSceneProps {
 }
 
 /**
- * Greenhaven Island — the single scene of TinyWorld.
+ * One island.
  *
- * Composed so the first frame already reads as a photograph: the island is
- * framed as a miniature, the lighthouse anchors the high ground, and the path
- * leads the eye from the dock in the foreground to the arch at the island spine.
+ * Every value that differs between islands — coastline, height field, palette,
+ * footpath, scatter and landmarks — arrives through the `island` prop. Nothing
+ * in here branches on which island is active, so a new island needs no changes
+ * to this file. Remounting it with a different island (via `key`) is what forces
+ * the terrain geometry and instanced props to be rebuilt.
  */
-export function GreenhavenScene({
+export function IslandScene({
+  island,
   shadows,
   inputEnabled,
   onSelect,
   onNearbyChange,
-}: GreenhavenSceneProps) {
+}: IslandSceneProps) {
   const timeOfDay = useSettingsStore((s) => s.timeOfDay)
   const preset = LIGHTING_PRESETS[timeOfDay]
+
+  const terrain = useMemo(() => createTerrain(island), [island])
+  const environment = useMemo(() => ({ shadows, island, terrain }), [shadows, island, terrain])
 
   const handleSelect = useCallback(
     (id: string | null) => {
@@ -51,15 +60,15 @@ export function GreenhavenScene({
 
       <TimeBasedLighting shadows={shadows} />
 
-      <Water />
-      <Terrain />
-      <IslandPath />
-      <Vegetation shadows={shadows} />
+      <Water {...environment} />
+      <Terrain {...environment} />
+      <IslandPath {...environment} />
+      <Vegetation {...environment} />
 
-      <InteractiveObjects onSelect={handleSelect} />
-      <PlayerAvatar />
+      <InteractiveObjects island={island} terrain={terrain} onSelect={handleSelect} />
+      <PlayerAvatar island={island} />
 
-      <CameraRig onNearbyChange={handleNearbyChange} inputEnabled={inputEnabled} />
+      <CameraRig island={island} onNearbyChange={handleNearbyChange} inputEnabled={inputEnabled} />
     </>
   )
 }

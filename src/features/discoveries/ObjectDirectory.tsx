@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Compass, MapPin, Search } from 'lucide-react'
-import { CATEGORY_LABELS, TOTAL_DISCOVERABLE, WORLD_OBJECTS } from '@/data/objects'
-import { useGameStore } from '@/store/game-store'
+import { CATEGORY_LABELS, islandDiscoverableCount } from '@/data/objects'
+import { useActiveDiscoveries, useActiveIsland, useGameStore } from '@/store/game-store'
 import { summariseProgress } from '@/game/discovery/discovery'
 import type { WorldObjectDef } from '@/types'
 
@@ -15,18 +15,19 @@ export interface ObjectDirectoryProps {
 type Filter = 'all' | 'found' | 'missing'
 
 /**
- * Accessible DOM directory of every landmark.
+ * Accessible DOM directory of every landmark on the current island.
  *
  * This is the non-3D route to the whole world: it is the primary interaction
  * path when WebGL is unavailable, and a keyboard-friendly alternative to
  * raycasting for everyone else.
  */
 export function ObjectDirectory({
-  headingLevel = 3,
+  headingLevel = 2,
   tone = 'light',
   className = '',
 }: ObjectDirectoryProps) {
-  const discoveries = useGameStore((state) => state.discoveries)
+  const island = useActiveIsland()
+  const discoveries = useActiveDiscoveries()
   const select = useGameStore((state) => state.select)
   const selectedId = useGameStore((state) => state.selectedId)
   const interact = useGameStore((state) => state.interact)
@@ -35,12 +36,12 @@ export function ObjectDirectory({
   const [query, setQuery] = useState('')
 
   const foundIds = useMemo(() => new Set(discoveries.map((entry) => entry.id)), [discoveries])
-  const { found, total } = summariseProgress(discoveries, TOTAL_DISCOVERABLE)
+  const { found, total } = summariseProgress(discoveries, islandDiscoverableCount(island))
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase()
 
-    return WORLD_OBJECTS.filter((object) => {
+    return island.objects.filter((object) => {
       if (filter === 'found' && !foundIds.has(object.id)) return false
       if (filter === 'missing' && foundIds.has(object.id)) return false
       if (needle.length === 0) return true
@@ -50,7 +51,7 @@ export function ObjectDirectory({
         CATEGORY_LABELS[object.category].toLowerCase().includes(needle)
       )
     })
-  }, [filter, query, foundIds])
+  }, [filter, query, island.objects, foundIds])
 
   const dark = tone === 'dark'
   const Heading = headingLevel === 2 ? 'h2' : 'h3'

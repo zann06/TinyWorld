@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Dialog } from '@/components/ui/Dialog'
-import { useGameStore } from '@/store/game-store'
-import { ISLAND_NAME, ISLAND_TAGLINE } from '@/data/world'
+import { useActiveIsland, useGameStore } from '@/store/game-store'
 
 export interface OnboardingDialogProps {
   open: boolean
@@ -13,6 +12,7 @@ export interface OnboardingDialogProps {
 export function OnboardingDialog({ open, onClose }: OnboardingDialogProps) {
   const [touch, setTouch] = useState(false)
 
+  const island = useActiveIsland()
   const complete = useGameStore((s) => s.completeOnboarding)
   const pushToast = useGameStore((s) => s.pushToast)
 
@@ -26,14 +26,14 @@ export function OnboardingDialog({ open, onClose }: OnboardingDialogProps) {
     complete()
     onClose()
     pushToast({
-      title: `Welcome to ${ISLAND_NAME}`,
+      title: `Welcome to ${island.name}`,
       description: 'Explore the coast path and press E at each landmark.',
       variant: 'info',
     })
   }
 
   return (
-    <Dialog open={open} onClose={finish} title={ISLAND_NAME} description={ISLAND_TAGLINE} size="md">
+    <Dialog open={open} onClose={finish} title={island.name} description={island.tagline} size="md">
       <div className="space-y-5">
         <section>
           <h3 className="text-sm font-bold tracking-wide text-forest uppercase">Move</h3>

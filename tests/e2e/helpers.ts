@@ -68,25 +68,48 @@ export async function expectCanvasNotBlank(page: Page): Promise<void> {
   expect(result.ok, `Canvas appears blank (${JSON.stringify(result)})`).toBe(true)
 }
 
-/** Read the persisted discovery list from localStorage. */
-export async function readStoredProgress(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    try {
-      const raw = window.localStorage.getItem('tinyworld:progress:v1')
+/**
+ * Read the persisted discovery list for one island.
+ *
+ * Version 2 stores `{ version: 2, islands: { [islandId]: DiscoveryEntry[] } }`.
+ * Version 1 stored one flat list that belonged to Greenhaven, and is still
+ * handled so an old save cannot make the suite fail.
+ */
+export async function readStoredProgress(page: Page, islandId = 'greenhaven'): Promise<string[]> {
+  return page.evaluate((wanted) => {
+    const read = (raw: string | null): string[] => {
       if (!raw) return []
-      const parsed: unknown = JSON.parse(raw)
-      if (typeof parsed !== 'object' || parsed === null) return []
-      const discoveries = (parsed as { discoveries?: unknown }).discoveries
-      if (!Array.isArray(discoveries)) return []
-      return discoveries
-        .map((entry) =>
-          typeof entry === 'object' && entry !== null ? (entry as { id?: unknown }).id : undefined,
-        )
-        .filter((id): id is string => typeof id === 'string')
-    } catch {
-      return []
+      try {
+        const parsed: unknown = JSON.parse(raw)
+        if (typeof parsed !== 'object' || parsed === null) return []
+
+        const record = parsed as Record<string, unknown>
+
+        const toIds = (value: unknown): string[] => {
+          if (!Array.isArray(value)) return []
+          return value
+            .map((entry) =>
+              typeof entry === 'object' && entry !== null
+                ? (entry as { id?: unknown }).id
+                : undefined,
+            )
+            .filter((id): id is string => typeof id === 'string')
+        }
+
+        if (record['version'] === 2) {
+          const islands = record['islands']
+          if (typeof islands !== 'object' || islands === null) return []
+          return toIds((islands as Record<string, unknown>)[wanted])
+        }
+
+        return wanted === 'greenhaven' ? toIds(record['discoveries']) : []
+      } catch {
+        return []
+      }
     }
-  })
+
+    return read(window.localStorage.getItem('tinyworld:progress:v1'))
+  }, islandId)
 }
 
 /**

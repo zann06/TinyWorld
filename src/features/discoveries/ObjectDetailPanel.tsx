@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, Compass, MapPin } from 'lucide-react'
 import { CATEGORY_LABELS, getObjectById } from '@/data/objects'
-import { useGameStore } from '@/store/game-store'
+import { useActiveDiscoveries, useActiveIsland } from '@/store/game-store'
 import { useSettingsStore } from '@/store/settings-store'
 
 export interface ObjectDetailPanelProps {
@@ -19,10 +19,11 @@ export interface ObjectDetailPanelProps {
  * anyone who cannot use the 3D viewport.
  */
 export function ObjectDetailPanel({ open, objectId, onClose, onInteract }: ObjectDetailPanelProps) {
-  const discoveries = useGameStore((s) => s.discoveries)
+  const discoveries = useActiveDiscoveries()
+  const island = useActiveIsland()
   const reducedMotion = useSettingsStore((s) => s.reducedMotion)
 
-  const object = objectId ? getObjectById(objectId) : undefined
+  const object = objectId ? getObjectById(island, objectId) : undefined
   const found = object ? discoveries.some((entry) => entry.id === object.id) : false
 
   return (

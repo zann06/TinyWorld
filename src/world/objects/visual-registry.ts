@@ -1,5 +1,7 @@
 import {
   Arch,
+  Boathouse,
+  Cairn,
   Camp,
   Cottage,
   Dock,
@@ -9,6 +11,7 @@ import {
   Spring,
   Watchtower,
   Windmill,
+  Wreck,
 } from '@/world/objects/ObjectVisual'
 import type { WorldObjectDef } from '@/types'
 
@@ -29,6 +32,9 @@ export const OBJECT_VISUALS = {
   camp: Camp,
   arch: Arch,
   spring: Spring,
+  wreck: Wreck,
+  cairn: Cairn,
+  boathouse: Boathouse,
 } as const satisfies Record<string, () => React.JSX.Element>
 
 export type VisualKey = keyof typeof OBJECT_VISUALS

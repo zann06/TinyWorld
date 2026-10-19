@@ -32,6 +32,10 @@ export const PROP_COLORS = {
  * One material instance per colour, shared across every mesh that uses it, so
  * a few hundred objects still produce a very small number of draw calls and
  * programs.
+ *
+ * `scope` namespaces the cache key. Materials whose colour varies per island
+ * must pass the island id, otherwise the first island to request a colour would
+ * win for every island after it.
  */
 const materialCache = new Map<string, THREE.Material>()
 
@@ -39,12 +43,14 @@ export function matteMaterial(
   key: string,
   color: string,
   extra?: Partial<THREE.MeshLambertMaterialParameters>,
+  scope?: string,
 ): THREE.MeshLambertMaterial {
-  const cached = materialCache.get(key)
+  const cacheKey = scope ? `${scope}:${key}` : key
+  const cached = materialCache.get(cacheKey)
   if (cached) return cached as THREE.MeshLambertMaterial
 
   const material = new THREE.MeshLambertMaterial({ color, ...extra })
-  materialCache.set(key, material)
+  materialCache.set(cacheKey, material)
   return material
 }
 

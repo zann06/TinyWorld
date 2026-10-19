@@ -1,15 +1,16 @@
 import { useCallback, useRef, useState } from 'react'
 import { Hand, MoveDiagonal } from 'lucide-react'
 import { movementState } from '@/game/input/useKeyboardControls'
-import { useGameStore } from '@/store/game-store'
+import { useActiveIsland, useGameStore } from '@/store/game-store'
 import { promptLabel } from '@/game/interaction/interaction'
 
 /**
- * Touch controls: an analog thumbstick on the left, a large action button on
- * the right. The stick is pointer-captured, so a drag never leaves the widget,
+ * Touch controls: an analog thumbstick on the left, a large action button on the
+ * right. The stick is pointer-captured, so a drag never leaves the widget,
  * and it never blocks the panel or the canvas tap targets above it.
  */
 export function TouchControls() {
+  const island = useActiveIsland()
   const nearbyId = useGameStore((s) => s.nearbyId)
   const selectedId = useGameStore((s) => s.selectedId)
   const interact = useGameStore((s) => s.interact)
@@ -19,7 +20,7 @@ export function TouchControls() {
   const [knob, setKnob] = useState({ x: 0, y: 0 })
 
   const targetId = nearbyId ?? selectedId
-  const label = promptLabel(targetId)
+  const label = promptLabel(island, targetId)
 
   const resetStick = useCallback(() => {
     pointerId.current = null

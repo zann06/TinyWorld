@@ -1,0 +1,126 @@
+import type { WorldObjectDef } from '@/types'
+
+/**
+ * Every discoverable / interactable object on Cairnmoor Isle.
+ *
+ * Three visuals (`wreck`, `cairn`, `boathouse`) are built specifically for this
+ * island. The rest reuse Greenhaven's builders, which are parametric low-poly
+ * primitives and read differently at Cairnmoor's colder palette.
+ */
+export const CAIRNMOOR_OBJECTS: readonly WorldObjectDef[] = [
+  {
+    id: 'wreck',
+    name: 'The Gullwing Wreck',
+    category: 'landmark',
+    summary: 'A hull on its side in the shallows, half of it still recognisable.',
+    description:
+      'The Gullwing went onto Cairnmoor rocks in a winter nobody agrees on. Her mast lies parallel to the beach, rib by rib, exactly as she came ashore. The islanders long ago stopped trying to haul her back to sea.',
+    position: { x: -6, y: 0, z: 24 },
+    radius: 5,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Climb the ribs',
+    visual: 'wreck',
+    lore: 'She is still pointing the way she was heading when she struck.',
+  },
+  {
+    id: 'cairn',
+    name: "The Watcher's Cairn",
+    category: 'landmark',
+    summary: 'Stones stacked by hand, with one flat stone facing the water.',
+    description:
+      'Nobody records who started the cairn. Each visitor adds a stone and turns the flat one outward, which is why there are several of them and none quite agree. From the top you can see both shores at once.',
+    position: { x: 16, y: 0, z: 14 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Add a stone',
+    visual: 'cairn',
+  },
+  {
+    id: 'boathouse',
+    name: 'Gullrock Boathouse',
+    category: 'structure',
+    summary: 'A hut with its door propped open and its slipway full of weeds.',
+    description:
+      'The boathouse was built for a boat that no longer exists. Someone keeps sweeping the floor and propping the door, and the roof has stayed sound through every storm since, which the islanders consider the important part.',
+    position: { x: -22, y: 0, z: 6 },
+    radius: 3.5,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Push the door open',
+    visual: 'boathouse',
+  },
+  {
+    id: 'jetty',
+    name: 'The Broken Jetty',
+    category: 'structure',
+    summary: 'Half a pier, ending in the water where the rest used to be.',
+    description:
+      'A storm took the outer half in one night and left the inner half standing, which irritates the islanders more than losing all of it would have. Repairs have been planned four times.',
+    position: { x: -19, y: 0, z: -13 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Walk out to the end',
+    visual: 'dock',
+  },
+  {
+    id: 'split-stone',
+    name: 'The Split Stone',
+    category: 'landmark',
+    summary: 'A boulder cracked cleanly down the middle by cold.',
+    description:
+      'The Split Stone opened in a single winter and has never moved since. Locals say it is why Cairnmoor has its name: cairn, because the island counts things, moor because it refuses to settle.',
+    position: { x: 8, y: 0, z: -8 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Look through the crack',
+    visual: 'arch',
+    lore: 'On the shortest day the two halves throw different shadows.',
+  },
+  {
+    id: 'drift-camp',
+    name: 'Driftwood Camp',
+    category: 'structure',
+    summary: 'A fire ring built entirely from what the tide brought in.',
+    description:
+      'Everything here floated here first: the benches, the drying rack, the frame of the shelter. Whoever lights it adds their own driftwood and takes none of it away, which is the whole arrangement.',
+    position: { x: -14, y: 0, z: -20 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Feed the fire',
+    visual: 'camp',
+  },
+  {
+    id: 'cold-seep',
+    name: 'The Cold Seep',
+    category: 'nature',
+    summary: 'A shallow pool that is always running, never warm, never dry.',
+    description:
+      'The seep never freezes, even in the weeks when the shallows hold. It is the only drinking water on Cairnmoor, and the reason the island was ever settled rather than merely visited.',
+    position: { x: 24, y: 0, z: -8 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Drink from the seep',
+    visual: 'spring',
+  },
+  {
+    id: 'standing-stone-way',
+    name: 'The Standing Stone Way',
+    category: 'landmark-feature',
+    summary: 'Seven markers that each point at the next one, not at a destination.',
+    description:
+      'The markers do not form an arrow anywhere useful. Each is carved with a notch counting the next marker rather than a bearing, so following them twice is the only way to learn the order. Locals accept this without comment.',
+    position: { x: -2, y: 0, z: 16 },
+    radius: 2.2,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Read the notches',
+    visual: 'signpost',
+    lore: 'Seven markers · four usable · the fifth is upside down.',
+  },
+]

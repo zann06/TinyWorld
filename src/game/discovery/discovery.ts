@@ -1,4 +1,4 @@
-import { KNOWN_OBJECT_IDS, getObjectById } from '@/data/objects'
+import { KNOWN_OBJECT_IDS } from '@/data/objects'
 import type { DiscoveryEntry } from '@/types'
 
 /**
@@ -24,11 +24,6 @@ export function summariseProgress(
     total: safeTotal,
     ratio: safeTotal === 0 ? 0 : Math.min(1, found / safeTotal),
   }
-}
-
-/** IDs of all discoverable objects. */
-export function discoverableIds(): string[] {
-  return [...KNOWN_OBJECT_IDS].filter((id) => getObjectById(id)?.discoverable === true)
 }
 
 /**

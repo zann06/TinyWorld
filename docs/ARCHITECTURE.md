@@ -27,15 +27,16 @@ main.tsx
   └─ AppProviders                        reduced-motion → document element
       └─ ErrorBoundary
           └─ App                         shell, WebGL detection, overlays
-              ├─ TopBar                  brand + progress + settings
-              ├─ WorldCanvas             <Canvas> + input + interaction layer
-              │   ├─ GreenhavenScene     the island
-              │   │   ├─ TimeBasedLighting
-              │   │   ├─ SkyDome / Water / Terrain / IslandPath / Vegetation
-              │   │   ├─ InteractiveObjects   raycast selection + models
-              │   │   ├─ PlayerAvatar
-              │   │   └─ CameraRig       movement + follow camera
-              │   └─ RendererBridge      exposes the renderer to photo mode
+              ├─ TopBar                  brand + island switcher + progress + settings
+              ├─ Suspense                falls back while the 3D chunk downloads
+              │   └─ WorldCanvas         <Canvas> + input + interaction layer
+              │       ├─ IslandScene     one island, keyed on the island id
+              │       │   ├─ TimeBasedLighting
+              │       │   ├─ SkyDome / Water / Terrain / IslandPath / Vegetation
+              │       │   ├─ InteractiveObjects   raycast selection + models
+              │       │   ├─ PlayerAvatar
+              │       │   └─ CameraRig       movement + follow camera
+              │       └─ RendererBridge      exposes the renderer to photo mode
               ├─ SettingsDialog / JournalDialog / OnboardingDialog
               └─ ToastHost
 ```
@@ -46,8 +47,30 @@ main.tsx
 | Application state | `src/store`                      | Zustand stores for game, settings, UI shell and world effects.   |
 | 3D world          | `src/world`                      | Rendering, geometry, lighting, camera, animation.                |
 | Game systems      | `src/game`                       | Input mapping, collision, interaction dispatch, discovery rules. |
-| Data              | `src/data`                       | Typed world and object definitions. Pure; no rendering.          |
+| Data              | `src/data`                       | Island definitions and landmarks. Pure; no rendering.            |
 | Persistence       | `src/lib/storage.ts`             | Namespaced, validated, failure-tolerant localStorage.            |
+
+## Islands
+
+TinyWorld has more than one island, and **nothing outside `src/data/islands.ts`
+branches on which one is active**. An `IslandDefinition` carries everything
+needed to stand on one island: radius, spawn point, coastline harmonics, terrain
+shape, palette, footpath, obstacles, decorative scatter and its landmarks.
+
+Two rules keep that honest:
+
+- **Terrain is built by a factory, not a global.** `createTerrain(island)`
+  returns functions bound to that island in a closure. Nothing reads module-level
+  "current island" state, so two terrains can coexist and every function stays
+  pure and unit-testable.
+- **Scene components take the island as a prop.** `IslandScene` is rendered with
+  `key={island.id}`, so travelling remounts it and the terrain geometry and
+  instanced vegetation are regenerated rather than left over from the island you
+  just left.
+
+Progress and the saved player position are both keyed by island id. Stored
+progress moved to version 2 (`{ version: 2, islands: { … } }`); a version 1 save
+is migrated by bucketing each entry under the island that owns it.
 
 ## State
 
@@ -69,25 +92,38 @@ written by the frame loop. Writing to it causes no renders.
 
 ## World data flow
 
-`src/data/objects.ts` declares every landmark once:
+Each island's landmarks live in one file under `src/data/islands/`. A landmark
+declares exactly this:
 
 ```
 WorldObjectDef
-  ├─ id           stable, never renamed without a migration
+  ├─ id           stable, never renamed without a migration, unique across islands
   ├─ visual       key into src/world/objects/visual-registry.ts
   ├─ position     world coordinates (y is derived from the terrain)
   ├─ radius       proximity reach and selection halo size
   └─ interactable + actionLabel
 ```
 
-Adding a landmark therefore touches exactly two files: the data array and a new
-component in `ObjectVisual.tsx`. A unit test fails the build if a declared
-object has no registered visual.
+Adding a landmark therefore touches exactly two files: the island's landmark
+list and a new component in `ObjectVisual.tsx`. Three unit tests guard the edges:
+a declared object with no registered visual fails, a landmark placed below the
+waterline fails, and an object id claimed by two islands fails.
 
-`src/data/world.ts` holds the coastline function, the footpath, obstacle
-radii and the decoration scatter clusters. `coastlineRadius` lives here rather
-than in the terrain module so that collision and rendering share one boundary
-and can never disagree about where the island ends.
+`src/data/islands.ts` holds the island definitions. `src/data/world.ts` holds
+only the coastline maths, parameterised by a `CoastShape`. `coastlineRadius`
+lives there rather than in the terrain module so that collision and rendering
+share one boundary and can never disagree about where an island ends — which is
+also why `resolvePosition` takes the coastline as an argument rather than
+importing one.
+
+The three shared hazards that come with parameterising all of this, and what
+stops each:
+
+| Hazard                                            | Guard                                                   |
+| ------------------------------------------------- | ------------------------------------------------------- |
+| A landmark ends up under water after a shape tweak | Test: every landmark and path point must be above 0.     |
+| A coastline clamp silently uses the wrong island    | `resolvePosition` requires the coastline; no default.   |
+| A cached material from island A leaks into island B | `matteMaterial` takes a `scope`; per-island callers pass the island id. |
 
 ## Input model
 
@@ -123,16 +159,23 @@ All storage goes through `src/lib/storage.ts`, which:
   over quota, and reports that state so the UI can say settings will not persist.
 
 Discovery entries for landmarks that no longer exist are dropped on load, so an
-older save cannot break a newer build.
+older save cannot break a newer build. The stored progress schema is version 2,
+keyed by island; version 1 saves migrate by bucketing each entry under the island
+that owns it. The resume position is versioned the same way, so travelling
+between islands never loses either one's position.
 
 ## Performance
 
 - Repeated props are `InstancedMesh` — a few hundred trees cost a handful of
   draw calls.
 - Geometry and materials are cached once per session in
-  `src/world/objects/geometry.ts` and `materials.ts`.
+  `src/world/objects/geometry.ts` and `materials.ts`. Materials whose colour
+  varies per island pass a `scope` so the cache cannot hand island A's water to
+  island B.
 - Quality presets change device pixel ratio, shadow type, shadow map size and
   decoration density.
+- The 3D world is a lazy chunk (`React.lazy` in `App.tsx`), so the interface
+  paints from a ~133 kB gzipped shell while Three.js streams in separately.
 - Nothing calls `setState` from `useFrame`.
 
 ## Adding a landmark

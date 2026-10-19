@@ -9,8 +9,8 @@ import {
   STORAGE_KEYS,
 } from '@/lib/storage'
 import { DEFAULT_SETTINGS, normaliseSettings } from '@/store/settings-defaults'
-import { EMPTY_PROGRESS, normaliseProgress } from '@/store/progress-schema'
-import { KNOWN_OBJECT_IDS } from '@/data/objects'
+import { EMPTY_PROGRESS, PROGRESS_VERSION, normaliseProgress } from '@/store/progress-schema'
+import { DEFAULT_ISLAND_ID, islandOfObjectId } from '@/data/islands'
 
 /**
  * Temporarily replace a Storage method with one that throws, mirroring a
@@ -177,23 +177,59 @@ describe('normaliseProgress', () => {
   })
 
   it('returns empty progress for null', () => {
-    expect(normaliseProgress(null, KNOWN_OBJECT_IDS)).toEqual(EMPTY_PROGRESS)
+    expect(normaliseProgress(null, islandOfObjectId)).toEqual(EMPTY_PROGRESS)
   })
 
-  it('keeps valid discoveries', () => {
+  it('migrates a version 1 save onto the default island', () => {
     const result = normaliseProgress(
       { version: 1, discoveries: [{ id: 'lighthouse', discoveredAt: 123 }] },
-      KNOWN_OBJECT_IDS,
+      islandOfObjectId,
     )
-    expect(result.discoveries).toEqual([{ id: 'lighthouse', discoveredAt: 123 }])
+
+    expect(result.version).toBe(PROGRESS_VERSION)
+    expect(result.islands[DEFAULT_ISLAND_ID]).toEqual([{ id: 'lighthouse', discoveredAt: 123 }])
+  })
+
+  it('buckets a version 1 save by the island that owns each object', () => {
+    const result = normaliseProgress(
+      {
+        discoveries: [
+          { id: 'lighthouse', discoveredAt: 1 },
+          { id: 'wreck', discoveredAt: 2 },
+        ],
+      },
+      islandOfObjectId,
+    )
+
+    expect(result.islands['greenhaven']?.map((entry) => entry.id)).toEqual(['lighthouse'])
+    expect(result.islands['cairnmoor']?.map((entry) => entry.id)).toEqual(['wreck'])
+  })
+
+  it('keeps valid version 2 discoveries', () => {
+    const result = normaliseProgress(
+      { version: PROGRESS_VERSION, islands: { cairnmoor: [{ id: 'wreck', discoveredAt: 5 }] } },
+      islandOfObjectId,
+    )
+    expect(result.islands['cairnmoor']).toEqual([{ id: 'wreck', discoveredAt: 5 }])
+  })
+
+  it('drops a version 2 entry filed under the wrong island', () => {
+    const result = normaliseProgress(
+      {
+        version: PROGRESS_VERSION,
+        islands: { cairnmoor: [{ id: 'lighthouse', discoveredAt: 5 }] },
+      },
+      islandOfObjectId,
+    )
+    expect(result.islands['cairnmoor']).toBeUndefined()
   })
 
   it('drops discoveries for objects that no longer exist', () => {
     const result = normaliseProgress(
       { discoveries: [{ id: 'removed-landmark', discoveredAt: 1 }] },
-      KNOWN_OBJECT_IDS,
+      islandOfObjectId,
     )
-    expect(result.discoveries).toEqual([])
+    expect(result.islands).toEqual({})
   })
 
   it('de-duplicates repeated discoveries', () => {
@@ -204,33 +240,40 @@ describe('normaliseProgress', () => {
           { id: 'cottage', discoveredAt: 9 },
         ],
       },
-      KNOWN_OBJECT_IDS,
+      islandOfObjectId,
     )
-    expect(result.discoveries).toHaveLength(1)
-    expect(result.discoveries[0]?.discoveredAt).toBe(2)
+    const entries = result.islands['greenhaven'] ?? []
+    expect(entries).toHaveLength(1)
+    expect(entries[0]?.discoveredAt).toBe(2)
   })
 
   it('repairs invalid timestamps', () => {
     const result = normaliseProgress(
       { discoveries: [{ id: 'cottage', discoveredAt: 'yesterday' }] },
-      KNOWN_OBJECT_IDS,
+      islandOfObjectId,
     )
-    expect(result.discoveries[0]?.discoveredAt).toBeGreaterThan(0)
+    expect(result.islands['greenhaven']?.[0]?.discoveredAt).toBeGreaterThan(0)
   })
 
   it('ignores a non-array discoveries field', () => {
-    expect(normaliseProgress({ discoveries: 'lots' }, KNOWN_OBJECT_IDS).discoveries).toEqual([])
+    expect(normaliseProgress({ discoveries: 'lots' }, islandOfObjectId).islands).toEqual({})
+  })
+
+  it('ignores a non-object islands field', () => {
+    expect(
+      normaliseProgress({ version: PROGRESS_VERSION, islands: 'lots' }, islandOfObjectId).islands,
+    ).toEqual({})
   })
 
   it('skips malformed entries', () => {
     const result = normaliseProgress(
       { discoveries: [null, 'cottage', { id: 'dock', discoveredAt: 5 }] },
-      KNOWN_OBJECT_IDS,
+      islandOfObjectId,
     )
-    expect(result.discoveries).toEqual([{ id: 'dock', discoveredAt: 5 }])
+    expect(result.islands['greenhaven']).toEqual([{ id: 'dock', discoveredAt: 5 }])
   })
 
   it('always reports the current schema version', () => {
-    expect(normaliseProgress({ version: 99 }, KNOWN_OBJECT_IDS).version).toBe(1)
+    expect(normaliseProgress({ version: 99 }, islandOfObjectId).version).toBe(PROGRESS_VERSION)
   })
 })

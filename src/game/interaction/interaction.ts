@@ -1,5 +1,6 @@
 import { getObjectById } from '@/data/objects'
-import type { WorldObjectDef } from '@/types'
+import { ISLANDS, getIsland } from '@/data/islands'
+import type { IslandDefinition, WorldObjectDef } from '@/types'
 
 /**
  * Interaction dispatch.
@@ -38,14 +39,26 @@ const EFFECT_BY_ID: Record<string, InteractionOutcome['effect']> = {
   camp: 'stoke-fire',
   spring: 'splash-spring',
   windmill: 'turn-sails',
+  'drift-camp': 'stoke-fire',
+  'cold-seep': 'splash-spring',
+}
+
+/** Every discoverable object id, across every island. */
+export function discoverableIds(): string[] {
+  return ISLANDS.flatMap((island) =>
+    island.objects.filter((object) => object.discoverable).map((object) => object.id),
+  )
 }
 
 /**
- * Resolve the outcome of interacting with an object.
+ * Resolve the outcome of interacting with an object on an island.
  * Returns null for unknown or non-interactable IDs.
  */
-export function resolveInteraction(id: string): InteractionOutcome | null {
-  const object = getObjectById(id)
+export function resolveInteraction(
+  island: IslandDefinition,
+  id: string,
+): InteractionOutcome | null {
+  const object = getObjectById(island, id)
   if (!object || !object.interactable) return null
 
   const kind = KIND_BY_CATEGORY[object.category]
@@ -61,9 +74,14 @@ export function resolveInteraction(id: string): InteractionOutcome | null {
 }
 
 /** Short prompt label for the contextual interaction hint. */
-export function promptLabel(id: string | null): string | null {
+export function promptLabel(island: IslandDefinition, id: string | null): string | null {
   if (!id) return null
-  const object = getObjectById(id)
+  const object = getObjectById(island, id)
   if (!object || !object.interactable) return null
   return object.actionLabel ?? `Explore ${object.name}`
+}
+
+/** Which island owns an id, for callers that only have the island id. */
+export function islandForId(islandId: string | null | undefined): IslandDefinition {
+  return getIsland(islandId)
 }

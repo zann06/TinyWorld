@@ -1,9 +1,14 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import type { IslandDefinition } from '@/types'
 import { movementState } from '@/game/input/useKeyboardControls'
-import { terrainHeight } from '@/world/terrain/terrain'
+import { createTerrain } from '@/world/terrain/terrain'
 import { matteMaterial } from '@/world/objects/materials'
+
+export interface PlayerAvatarProps {
+  island: IslandDefinition
+}
 
 /**
  * The explorer avatar.
@@ -11,7 +16,7 @@ import { matteMaterial } from '@/world/objects/materials'
  * A small low-poly figure with a bobbing idle and a forward lean while moving.
  * Animation runs entirely in the frame loop; no React state is touched.
  */
-export function PlayerAvatar() {
+export function PlayerAvatar({ island }: PlayerAvatarProps) {
   const groupRef = useRef<THREE.Group>(null)
   const bodyRef = useRef<THREE.Group>(null)
   const legLeftRef = useRef<THREE.Mesh>(null)
@@ -19,12 +24,14 @@ export function PlayerAvatar() {
   const armLeftRef = useRef<THREE.Mesh>(null)
   const armRightRef = useRef<THREE.Mesh>(null)
 
+  const terrain = useMemo(() => createTerrain(island), [island])
+
   useFrame((state) => {
     const group = groupRef.current
     if (!group) return
 
     const { x, z } = movementState.player
-    const ground = terrainHeight(x, z)
+    const ground = terrain.height(x, z)
 
     group.position.set(x, ground, z)
     // Face the direction of travel; when idle, face away from the camera.

@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { BookOpen, Camera, Hand, Keyboard, MousePointer2, Sparkles, X } from 'lucide-react'
 import { CATEGORY_LABELS, getObjectById } from '@/data/objects'
-import { ISLAND_NAME } from '@/data/world'
 import { promptLabel } from '@/game/interaction/interaction'
-import { useGameStore } from '@/store/game-store'
+import { useActiveDiscoveries, useActiveIsland, useGameStore } from '@/store/game-store'
 import { useUiStore } from '@/store/ui-store'
 import { useSettingsStore } from '@/store/settings-store'
 import { ObjectDetailPanel } from '@/features/discoveries/ObjectDetailPanel'
@@ -18,7 +17,8 @@ export function InteractionLayer() {
   const nearbyId = useGameStore((s) => s.nearbyId)
   const selectedId = useGameStore((s) => s.selectedId)
   const panelOpen = useGameStore((s) => s.panelOpen)
-  const discoveries = useGameStore((s) => s.discoveries)
+  const island = useActiveIsland()
+  const discoveries = useActiveDiscoveries()
   const interact = useGameStore((s) => s.interact)
   const closePanel = useGameStore((s) => s.closePanel)
 
@@ -37,8 +37,8 @@ export function InteractionLayer() {
   }, [])
 
   const activeId = nearbyId ?? selectedId
-  const prompt = promptLabel(activeId)
-  const selected = selectedId ? getObjectById(selectedId) : undefined
+  const prompt = promptLabel(island, activeId)
+  const selected = selectedId ? getObjectById(island, selectedId) : undefined
   const isFound = selected ? discoveries.some((entry) => entry.id === selected.id) : false
 
   return (
@@ -147,7 +147,7 @@ export function InteractionLayer() {
           >
             <p className="tw-panel-deep flex items-center gap-2 rounded-full px-4 py-2 text-xs text-muted-dark">
               <Sparkles size={13} aria-hidden="true" />
-              Welcome to {ISLAND_NAME}. Walk the path and press E at any landmark.
+              Welcome to {island.name}. Walk the path and press E at any landmark.
             </p>
           </motion.div>
         ) : null}

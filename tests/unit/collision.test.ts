@@ -6,7 +6,8 @@ import {
   resolvePosition,
   wrapAngle,
 } from '@/game/collision/collision'
-import { OBSTACLES, coastlineRadiusAt } from '@/data/world'
+import { ISLANDS, getIsland } from '@/data/islands'
+import { createTerrain } from '@/world/terrain/terrain'
 import { moveVectorToInput, readMoveVector } from '@/game/input/input'
 import type { Obstacle, Vec2 } from '@/types'
 
@@ -17,52 +18,103 @@ function cross(a: Vec3, b: Vec3): Vec3 {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 }
 
+const GREENHAVEN = getIsland('greenhaven')
+const greenhavenTerrain = createTerrain(GREENHAVEN)
+const coast = greenhavenTerrain.coastRadiusAt
+
 describe('resolvePosition', () => {
   const wall: Obstacle = { id: 'wall', x: 0, z: 0, radius: 2 }
 
   it('leaves a clear position untouched', () => {
-    const result = resolvePosition({ x: 10, z: 10 }, 0.5, [wall])
+    const result = resolvePosition({ x: 10, z: 10 }, 0.5, [wall], coast)
     expect(result.corrected).toBe(false)
     expect(result.position).toEqual({ x: 10, z: 10 })
   })
 
   it('pushes the player out of a solid obstacle', () => {
-    const result = resolvePosition({ x: 1, z: 0 }, 0.5, [wall])
+    const result = resolvePosition({ x: 1, z: 0 }, 0.5, [wall], coast)
     expect(result.corrected).toBe(true)
     // Player radius + obstacle radius = 2.5 units of separation.
     expect(Math.hypot(result.position.x, result.position.z)).toBeCloseTo(2.5, 4)
   })
 
   it('displaces a player standing exactly at an obstacle centre', () => {
-    const result = resolvePosition({ x: 0, z: 0 }, 0.5, [wall])
+    const result = resolvePosition({ x: 0, z: 0 }, 0.5, [wall], coast)
     expect(result.corrected).toBe(true)
     expect(Math.hypot(result.position.x, result.position.z)).toBeGreaterThanOrEqual(2.5)
   })
 
   it('keeps the player inside the real coastline', () => {
-    const result = resolvePosition({ x: 500, z: 500 }, 1, [])
+    const result = resolvePosition({ x: 500, z: 500 }, 1, [], coast)
     expect(result.corrected).toBe(true)
     // The clamp must respect the wobbled shoreline, not the nominal radius.
     expect(Math.hypot(result.position.x, result.position.z)).toBeLessThanOrEqual(
-      coastlineRadiusAt(result.position.x, result.position.z),
+      coast(result.position.x, result.position.z),
     )
   })
 
-  it('resolves every island landmark position to a walkable spot', () => {
-    for (const obstacle of OBSTACLES) {
-      const result = resolvePosition({ x: obstacle.x, z: obstacle.z }, 1.15, OBSTACLES)
-      expect(Math.hypot(result.position.x, result.position.z)).toBeLessThan(
-        coastlineRadiusAt(result.position.x, result.position.z),
-      )
-    }
-  })
+  it.each(ISLANDS.map((island) => [island.id, island] as const))(
+    'resolves every %s landmark position to a walkable spot',
+    (_id, island) => {
+      const terrain = createTerrain(island)
+
+      for (const obstacle of island.obstacles) {
+        const result = resolvePosition(
+          { x: obstacle.x, z: obstacle.z },
+          1.15,
+          island.obstacles,
+          terrain.coastRadiusAt,
+        )
+        expect(Math.hypot(result.position.x, result.position.z)).toBeLessThan(
+          terrain.coastRadiusAt(result.position.x, result.position.z),
+        )
+      }
+    },
+  )
+
+  it.each(ISLANDS.map((island) => [island.id, island] as const))(
+    'spawns %s the explorer on dry land',
+    (_id, island) => {
+      const terrain = createTerrain(island)
+      expect(terrain.height(island.spawn.x, island.spawn.z)).toBeGreaterThan(0)
+      expect(terrain.isOnLand(island.spawn.x, island.spawn.z)).toBe(true)
+    },
+  )
+
+  it.each(ISLANDS.map((island) => [island.id, island] as const))(
+    'places every %s landmark on dry land',
+    (_id, island) => {
+      const terrain = createTerrain(island)
+
+      for (const object of island.objects) {
+        expect(
+          terrain.height(object.position.x, object.position.z),
+          `${island.name}: ${object.name} sits below the waterline`,
+        ).toBeGreaterThan(0)
+      }
+    },
+  )
+
+  it.each(ISLANDS.map((island) => [island.id, island] as const))(
+    'keeps every %s footpath point on the island',
+    (_id, island) => {
+      const terrain = createTerrain(island)
+
+      for (const point of island.path) {
+        expect(
+          terrain.height(point.x, point.z),
+          `${island.name}: path point ${point.x},${point.z} is underwater`,
+        ).toBeGreaterThan(0)
+      }
+    },
+  )
 })
 
 describe('isPositionWalkable', () => {
   it('is false inside an obstacle and true outside it', () => {
     const wall: Obstacle = { id: 'wall', x: 0, z: 0, radius: 2 }
-    expect(isPositionWalkable({ x: 0, z: 0 }, 0.5, [wall])).toBe(false)
-    expect(isPositionWalkable({ x: 8, z: 8 }, 0.5, [wall])).toBe(true)
+    expect(isPositionWalkable({ x: 0, z: 0 }, 0.5, [wall], coast)).toBe(false)
+    expect(isPositionWalkable({ x: 8, z: 8 }, 0.5, [wall], coast)).toBe(true)
   })
 })
 

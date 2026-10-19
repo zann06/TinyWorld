@@ -1,7 +1,7 @@
 import { Settings2 } from 'lucide-react'
-import { ISLAND_NAME } from '@/data/world'
-import { TOTAL_DISCOVERABLE } from '@/data/objects'
-import { useGameStore } from '@/store/game-store'
+import { islandDiscoverableCount } from '@/data/objects'
+import { IslandSwitcher } from '@/components/layout/IslandSwitcher'
+import { useActiveDiscoveries, useActiveIsland } from '@/store/game-store'
 import { summariseProgress } from '@/game/discovery/discovery'
 
 export interface TopBarProps {
@@ -9,10 +9,12 @@ export interface TopBarProps {
   openSettingsLabel: string
 }
 
-/** Persistent header: brand, island name, live progress, settings trigger. */
+/** Persistent header: brand, island switcher, live progress, settings trigger. */
 export function TopBar({ onOpenSettings, openSettingsLabel }: TopBarProps) {
-  const discoveries = useGameStore((state) => state.discoveries)
-  const { found, total, ratio } = summariseProgress(discoveries, TOTAL_DISCOVERABLE)
+  const island = useActiveIsland()
+  const discoveries = useActiveDiscoveries()
+
+  const { found, total, ratio } = summariseProgress(discoveries, islandDiscoverableCount(island))
 
   return (
     <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-3 sm:p-4">
@@ -27,11 +29,15 @@ export function TopBar({ onOpenSettings, openSettingsLabel }: TopBarProps) {
           <p className="font-display text-sm leading-tight font-bold text-deep sm:text-base">
             TinyWorld
           </p>
-          <p className="truncate text-xs leading-tight text-muted">{ISLAND_NAME}</p>
+          <p className="truncate text-xs leading-tight text-muted" data-testid="island-name">
+            {island.name}
+          </p>
         </div>
       </div>
 
       <div className="pointer-events-auto flex items-center gap-2">
+        <IslandSwitcher />
+
         <div className="tw-panel flex items-center gap-2 px-3 py-2">
           <div
             className="h-2 w-16 overflow-hidden rounded-full bg-forest/15 sm:w-24"

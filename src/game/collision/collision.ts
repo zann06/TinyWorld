@@ -1,22 +1,28 @@
 ﻿import type { Obstacle, Vec2 } from '@/types'
-import { coastlineRadiusAt } from '@/data/world'
 
 /** Keeps the player this far from the island's shoreline. */
 export const SHORE_MARGIN = 3.2
 
+/** Boundary lookup supplied by the island's terrain, so both agree by construction. */
+export type CoastRadiusAt = (x: number, z: number) => number
+
 /**
  * Clamp a position so it stays on the island and outside every solid obstacle.
  * Returns the corrected position and whether any correction was applied.
+ *
+ * `coastRadiusAt` is required rather than optional: a silent default would let a
+ * player stand on water the moment a second island was added.
  */
 export function resolvePosition(
   position: Vec2,
   playerRadius: number,
   obstacles: readonly Obstacle[],
+  coastRadiusAt: CoastRadiusAt,
 ): { position: Vec2; corrected: boolean } {
   let corrected = false
 
   // 1. Keep the player on the island, following the real (wobbled) coastline.
-  const shore = coastlineRadiusAt(position.x, position.z)
+  const shore = coastRadiusAt(position.x, position.z)
   const maxRadius = shore - SHORE_MARGIN - playerRadius
   const distance = Math.hypot(position.x, position.z)
 
@@ -59,8 +65,9 @@ export function isPositionWalkable(
   position: Vec2,
   playerRadius: number,
   obstacles: readonly Obstacle[],
+  coastRadiusAt: CoastRadiusAt,
 ): boolean {
-  const { corrected } = resolvePosition(position, playerRadius, obstacles)
+  const { corrected } = resolvePosition(position, playerRadius, obstacles, coastRadiusAt)
   return !corrected
 }
 

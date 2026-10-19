@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { Settings2 } from 'lucide-react'
 import { AppProviders } from '@/app/providers'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
@@ -7,13 +7,23 @@ import { SettingsDialog } from '@/features/settings/SettingsDialog'
 import { OnboardingDialog } from '@/features/onboarding/OnboardingDialog'
 import { JournalDialog } from '@/features/discoveries/JournalDialog'
 import { WebGLUnavailable } from '@/features/exploration/WebGLUnavailable'
+import { SceneChunkFallback } from '@/features/exploration/SceneLoader'
 import { TopBar } from '@/components/layout/TopBar'
-import { WorldCanvas } from '@/world/WorldCanvas'
 import { AmbientAudio } from '@/lib/audio'
 import { useSettingsStore } from '@/store/settings-store'
 import { useUiStore } from '@/store/ui-store'
 import { detectWebGLSupport } from '@/lib/webgl'
 import { STORAGE_KEYS, readFlag, writeFlag } from '@/lib/storage'
+
+/**
+ * The 3D island is the only thing that pulls in Three.js and React Three
+ * Fiber, so it loads as its own chunk. The interface — top bar, island
+ * directory, journal, settings and the onboarding dialog — is usable while the
+ * renderer is still streaming in.
+ */
+const WorldCanvas = lazy(() =>
+  import('@/world/WorldCanvas').then((module) => ({ default: module.WorldCanvas })),
+)
 
 function TinyWorldApp() {
   const showHud = useSettingsStore((state) => state.showHud)
@@ -67,7 +77,13 @@ function TinyWorldApp() {
 
       <main className="relative flex-1" aria-label="Greenhaven Island">
         <ErrorBoundary title="The world stopped rendering">
-          {webgl.supported ? <WorldCanvas /> : <WebGLUnavailable reason={webgl.reason} />}
+          {webgl.supported ? (
+            <Suspense fallback={<SceneChunkFallback />}>
+              <WorldCanvas />
+            </Suspense>
+          ) : (
+            <WebGLUnavailable reason={webgl.reason} />
+          )}
         </ErrorBoundary>
       </main>
 

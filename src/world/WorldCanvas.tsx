@@ -1,7 +1,8 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import * as THREE from 'three'
-import { GreenhavenScene } from '@/world/scenes/GreenhavenScene'
+import { IslandScene } from '@/world/scenes/IslandScene'
+import { getIsland } from '@/data/islands'
 import { SceneLoader } from '@/features/exploration/SceneLoader'
 import { InteractionLayer } from '@/features/exploration/InteractionLayer'
 import { PhotoModeOverlay } from '@/features/photo-mode/PhotoMode'
@@ -24,6 +25,9 @@ export function WorldCanvas() {
   const select = useGameStore((s) => s.select)
   const openPanel = useGameStore((s) => s.openPanel)
   const setNearby = useGameStore((s) => s.setNearby)
+  const activeIslandId = useGameStore((s) => s.activeIslandId)
+
+  const island = useMemo(() => getIsland(activeIslandId), [activeIslandId])
 
   const blocking = useUiStore((s) => s.blocking)
   const inputEnabled = !blocking && !photoMode
@@ -125,7 +129,14 @@ export function WorldCanvas() {
         >
           <Suspense fallback={null}>
             <RendererBridge />
-            <GreenhavenScene
+            {/*
+              Keying on the island id remounts the whole scene when the explorer
+              travels, which is what rebuilds the terrain geometry and the
+              instanced props instead of leaving them from the previous island.
+            */}
+            <IslandScene
+              key={island.id}
+              island={island}
               shadows={quality !== 'low'}
               inputEnabled={inputEnabled}
               onSelect={handleSelect}

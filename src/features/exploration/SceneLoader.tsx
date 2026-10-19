@@ -8,6 +8,40 @@ import { motion } from 'motion/react'
  * short. This component covers the gap between React mount and the first
  * rendered frame, and disappears on its own.
  */
+
+/** The spinner and label, shared by the chunk-download fallback and the canvas. */
+function LoaderPanel() {
+  return (
+    <div className="flex flex-col items-center gap-3 text-cream">
+      <span
+        aria-hidden="true"
+        className="size-10 animate-spin rounded-full border-[3px] border-cream/25 border-t-sun"
+      />
+      <p className="text-sm font-medium">Growing Greenhaven Island…</p>
+    </div>
+  )
+}
+
+/**
+ * Shown while the 3D chunk is still downloading, before `WorldCanvas` exists.
+ *
+ * Deliberately does not time out: React swaps it out the instant the lazy
+ * import resolves, and it is visually identical to `SceneLoader`, so the two
+ * hand over without a flash.
+ */
+export function SceneChunkFallback() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-testid="scene-chunk-fallback"
+      className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-deep/70"
+    >
+      <LoaderPanel />
+    </div>
+  )
+}
+
 export function SceneLoader() {
   const [visible, setVisible] = useState(true)
 
@@ -26,13 +60,7 @@ export function SceneLoader() {
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <div className="flex flex-col items-center gap-3 text-cream">
-        <span
-          aria-hidden="true"
-          className="size-10 animate-spin rounded-full border-[3px] border-cream/25 border-t-sun"
-        />
-        <p className="text-sm font-medium">Growing Greenhaven Island…</p>
-      </div>
+      <LoaderPanel />
     </motion.div>
   )
 }

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Camera, Download, Eye, RotateCcw, Settings2, X } from 'lucide-react'
-import { useGameStore } from '@/store/game-store'
+import { useActiveIsland, useGameStore } from '@/store/game-store'
 import { useUiStore } from '@/store/ui-store'
-import { ISLAND_NAME } from '@/data/world'
 import { getRenderer } from '@/lib/renderer-bridge'
 import {
   MAX_CAMERA_DISTANCE,
@@ -18,6 +17,7 @@ import {
  * `preserveDrawingBuffer: true` so the framebuffer can be read back.
  */
 export function PhotoModeOverlay() {
+  const island = useActiveIsland()
   const setPhotoMode = useGameStore((s) => s.setPhotoMode)
   const openOverlay = useUiStore((s) => s.openOverlay)
   const pushToast = useGameStore((s) => s.pushToast)
@@ -73,14 +73,14 @@ export function PhotoModeOverlay() {
       const link = document.createElement('a')
       const stamp = new Date().toISOString().replace(/[:.]/g, '-')
       link.href = dataUrl
-      link.download = `tinyworld-greenhaven-${stamp}.png`
+      link.download = `tinyworld-${island.id}-${stamp}.png`
       document.body.append(link)
       link.click()
       link.remove()
 
       pushToast({
         title: 'Screenshot saved',
-        description: 'Your Greenhaven Island photo was downloaded as a PNG.',
+        description: `Your ${island.name} photo was downloaded as a PNG.`,
         variant: 'success',
       })
     } catch (cause) {
@@ -91,7 +91,7 @@ export function PhotoModeOverlay() {
     } finally {
       setBusy(false)
     }
-  }, [pushToast])
+  }, [pushToast, island.id, island.name])
 
   return (
     <div className="absolute inset-0 z-40" data-testid="photo-mode">
@@ -103,7 +103,7 @@ export function PhotoModeOverlay() {
           <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-4">
             <p className="tw-panel-deep pointer-events-none flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-cream">
               <Camera size={15} aria-hidden="true" />
-              Photo mode — {ISLAND_NAME}
+              Photo mode — {island.name}
             </p>
 
             <div className="pointer-events-auto flex items-center gap-2">

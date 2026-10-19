@@ -3,11 +3,27 @@ import {
   addDiscovery,
   clearDiscoveries,
   discoveredIds,
-  discoverableIds,
   hasDiscovered,
   summariseProgress,
 } from '@/game/discovery/discovery'
-import { KNOWN_OBJECT_IDS, TOTAL_DISCOVERABLE, WORLD_OBJECTS, getObjectById } from '@/data/objects'
+import { discoverableIds } from '@/game/interaction/interaction'
+import { ISLANDS, TOTAL_DISCOVERABLE, getIsland, islandOfObjectId } from '@/data/islands'
+import {
+  KNOWN_OBJECT_IDS,
+  getObjectById,
+  islandDiscoverableCount,
+  islandObjectIds,
+} from '@/data/objects'
+import type { WorldObjectDef } from '@/types'
+
+/** First entry of a non-empty list, with a clear failure if it is empty. */
+function firstOf(objects: readonly WorldObjectDef[]): WorldObjectDef {
+  const first = objects.at(0)
+  if (!first) throw new Error('Expected at least one object')
+  return first
+}
+
+const GREENHAVEN = getIsland('greenhaven')
 
 describe('summariseProgress', () => {
   it('reports zero progress with no discoveries', () => {
@@ -19,19 +35,25 @@ describe('summariseProgress', () => {
   })
 
   it('computes a ratio from the discovery count', () => {
-    const entries = WORLD_OBJECTS.slice(0, 5).map((object, index) => ({
+    const entries = GREENHAVEN.objects.slice(0, 5).map((object, index) => ({
       id: object.id,
       discoveredAt: index,
     }))
 
-    const summary = summariseProgress(entries, TOTAL_DISCOVERABLE)
+    const total = islandDiscoverableCount(GREENHAVEN)
+    const summary = summariseProgress(entries, total)
     expect(summary.found).toBe(5)
-    expect(summary.ratio).toBeCloseTo(5 / TOTAL_DISCOVERABLE, 6)
+    expect(summary.ratio).toBeCloseTo(5 / total, 6)
   })
 
   it('never exceeds a ratio of 1 even with duplicate entries', () => {
-    const entries = WORLD_OBJECTS.map((object) => ({ id: object.id, discoveredAt: 1 }))
-    expect(summariseProgress(entries, TOTAL_DISCOVERABLE).ratio).toBe(1)
+    // Deliberately feeds the island's discoveries in twice, with the island's
+    // own total as the denominator: the ratio must still clamp at 1.
+    const total = islandDiscoverableCount(GREENHAVEN)
+    const once = GREENHAVEN.objects.map((object) => ({ id: object.id, discoveredAt: 1 }))
+    const doubled = [...once, ...once]
+
+    expect(summariseProgress(doubled, total).ratio).toBe(1)
   })
 
   it('handles a zero total without dividing by zero', () => {
@@ -95,42 +117,95 @@ describe('discovery helpers', () => {
     expect(clearDiscoveries()).toEqual([])
   })
 
-  it('discoverableIds covers every discoverable object', () => {
+  it('discoverableIds covers every discoverable object on every island', () => {
     expect(discoverableIds()).toHaveLength(TOTAL_DISCOVERABLE)
   })
 })
 
-describe('world object data integrity', () => {
-  it('has unique object IDs', () => {
-    const ids = WORLD_OBJECTS.map((object) => object.id)
+describe.each(ISLANDS.map((island) => [island.name, island] as const))(
+  '%s data integrity',
+  (_name, island) => {
+    it('has unique object IDs', () => {
+      const ids = island.objects.map((object) => object.id)
+      expect(new Set(ids).size).toBe(ids.length)
+    })
+
+    it('meets the design target of at least 8 landmarks', () => {
+      expect(island.objects.length).toBeGreaterThanOrEqual(8)
+    })
+
+    it('gives every object a name, summary, description and category', () => {
+      for (const object of island.objects) {
+        expect(object.name.length).toBeGreaterThan(0)
+        expect(object.summary.length).toBeGreaterThan(10)
+        expect(object.description.length).toBeGreaterThan(40)
+        expect(object.category.length).toBeGreaterThan(0)
+      }
+    })
+
+    it('gives every interactable object an action label', () => {
+      for (const object of island.objects.filter((entry) => entry.interactable)) {
+        expect(object.actionLabel).toBeTruthy()
+      }
+    })
+
+    it('resolves known IDs and rejects unknown ones', () => {
+      expect(getObjectById(island, firstOf(island.objects).id)?.id).toBe(firstOf(island.objects).id)
+      expect(getObjectById(island, 'nope')).toBeUndefined()
+    })
+
+    it('never resolves an object from another island', () => {
+      for (const other of ISLANDS) {
+        if (other.id === island.id) continue
+        for (const object of other.objects) {
+          expect(
+            getObjectById(island, object.id),
+            `${island.name} must not resolve ${other.name}'s "${object.id}"`,
+          ).toBeUndefined()
+        }
+      }
+    })
+
+    it('exposes a non-empty island ID set', () => {
+      expect(islandObjectIds(island).size).toBe(island.objects.length)
+    })
+
+    it('spawns the explorer away from every obstacle', () => {
+      for (const obstacle of island.obstacles) {
+        const distance = Math.hypot(island.spawn.x - obstacle.x, island.spawn.z - obstacle.z)
+        expect(distance).toBeGreaterThan(obstacle.radius + 1.15)
+      }
+    })
+  },
+)
+
+describe('island registry', () => {
+  it('gives every island a unique id', () => {
+    const ids = ISLANDS.map((island) => island.id)
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it('meets the design target of at least 8 landmarks', () => {
-    expect(WORLD_OBJECTS.length).toBeGreaterThanOrEqual(8)
-  })
-
-  it('gives every object a name, summary, description and category', () => {
-    for (const object of WORLD_OBJECTS) {
-      expect(object.name.length).toBeGreaterThan(0)
-      expect(object.summary.length).toBeGreaterThan(10)
-      expect(object.description.length).toBeGreaterThan(40)
-      expect(object.category.length).toBeGreaterThan(0)
+  it('never lets two islands claim the same object id', () => {
+    const owners = new Map<string, string>()
+    for (const island of ISLANDS) {
+      for (const object of island.objects) {
+        expect(owners.has(object.id), `"${object.id}" is claimed twice`).toBe(false)
+        owners.set(object.id, island.id)
+      }
     }
   })
 
-  it('gives every interactable object an action label', () => {
-    for (const object of WORLD_OBJECTS.filter((entry) => entry.interactable)) {
-      expect(object.actionLabel).toBeTruthy()
+  it('maps every object id back to exactly one island', () => {
+    for (const island of ISLANDS) {
+      for (const object of island.objects) {
+        expect(islandOfObjectId(object.id)).toBe(island.id)
+      }
     }
+    expect(islandOfObjectId('nope')).toBeNull()
   })
 
-  it('resolves known IDs and rejects unknown ones', () => {
-    expect(getObjectById('lighthouse')?.name).toBe('Northwind Lighthouse')
-    expect(getObjectById('nope')).toBeUndefined()
-  })
-
-  it('exposes a non-empty known-ID set', () => {
-    expect(KNOWN_OBJECT_IDS.size).toBe(WORLD_OBJECTS.length)
+  it('exposes every island object in the known-ID set', () => {
+    const expected = ISLANDS.reduce((total, island) => total + island.objects.length, 0)
+    expect(KNOWN_OBJECT_IDS.size).toBe(expected)
   })
 })

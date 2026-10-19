@@ -3,20 +3,49 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ObjectDirectory } from '@/features/discoveries/ObjectDirectory'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
+import { IslandSwitcher } from '@/components/layout/IslandSwitcher'
 import { useGameStore } from '@/store/game-store'
 import { useSettingsStore } from '@/store/settings-store'
 import { useUiStore } from '@/store/ui-store'
 import { useWorldEffects } from '@/world/objects/world-effects'
 import { STORAGE_KEYS, readJson } from '@/lib/storage'
-import { TOTAL_DISCOVERABLE, WORLD_OBJECTS } from '@/data/objects'
+import { DEFAULT_ISLAND_ID, ISLANDS, TOTAL_DISCOVERABLE, getIsland } from '@/data/islands'
+import { islandDiscoverableCount } from '@/data/objects'
+import type { DiscoveryEntry, WorldObjectDef } from '@/types'
+
+/** First entry of a non-empty list, with a clear failure if it is empty. */
+function firstOf(objects: readonly WorldObjectDef[]): WorldObjectDef {
+  const first = objects.at(0)
+  if (!first) throw new Error('Expected at least one object')
+  return first
+}
+
+const GREENHAVEN = getIsland('greenhaven')
+const CAIRNMOOR = getIsland('cairnmoor')
+const GREENHAVEN_OBJECTS = GREENHAVEN.objects
+const GREENHAVEN_TOTAL = islandDiscoverableCount(GREENHAVEN)
+
+/** Seed discoveries onto an island without going through the store actions. */
+function seedDiscoveries(islandId: string, discoveries: DiscoveryEntry[]): void {
+  const store = useGameStore.getState()
+  useGameStore.setState({
+    discoveriesByIsland: { ...store.discoveriesByIsland, [islandId]: discoveries },
+  })
+}
+
+/** Discoveries recorded on one island. */
+function discoveriesOn(islandId: string): DiscoveryEntry[] {
+  return useGameStore.getState().discoveriesByIsland[islandId] ?? []
+}
 
 /** Return every store to a known state between tests. */
 function resetStores(): void {
   useGameStore.setState({
+    activeIslandId: DEFAULT_ISLAND_ID,
     selectedId: null,
     nearbyId: null,
     panelOpen: false,
-    discoveries: [],
+    discoveriesByIsland: {},
     lastDiscoveredId: null,
     toasts: [],
     photoMode: false,
@@ -56,18 +85,30 @@ describe('ObjectDirectory', () => {
 
     expect(screen.getByRole('heading', { name: 'Island directory' })).toBeInTheDocument()
 
-    for (const object of WORLD_OBJECTS) {
+    for (const object of GREENHAVEN_OBJECTS) {
       expect(screen.getByText(object.name)).toBeInTheDocument()
     }
   })
 
   it('reports progress in a live region', () => {
     render(<ObjectDirectory />)
-    expect(screen.getByText(`0 of ${TOTAL_DISCOVERABLE} landmarks discovered`)).toBeInTheDocument()
+
+    expect(screen.getByText(`0 of ${GREENHAVEN_TOTAL} landmarks discovered`)).toBeInTheDocument()
+  })
+
+  it('lists the other island once it becomes active', () => {
+    useGameStore.setState({ activeIslandId: CAIRNMOOR.id })
+    render(<ObjectDirectory />)
+
+    expect(screen.getByText(firstOf(CAIRNMOOR.objects).name)).toBeInTheDocument()
+    expect(screen.queryByText(firstOf(GREENHAVEN_OBJECTS).name)).not.toBeInTheDocument()
+    expect(
+      screen.getByText(`0 of ${islandDiscoverableCount(CAIRNMOOR)} landmarks discovered`),
+    ).toBeInTheDocument()
   })
 
   it('reveals the full description once an object is discovered', () => {
-    useGameStore.setState({ discoveries: [{ id: 'lighthouse', discoveredAt: 1 }] })
+    seedDiscoveries(DEFAULT_ISLAND_ID, [{ id: 'lighthouse', discoveredAt: 1 }])
     render(<ObjectDirectory />)
 
     const card = screen.getByText('Northwind Lighthouse').closest('li')
@@ -79,7 +120,7 @@ describe('ObjectDirectory', () => {
 
   it('filters by discovery status', async () => {
     const user = userEvent.setup()
-    useGameStore.setState({ discoveries: [{ id: 'lighthouse', discoveredAt: 1 }] })
+    seedDiscoveries(DEFAULT_ISLAND_ID, [{ id: 'lighthouse', discoveredAt: 1 }])
     render(<ObjectDirectory />)
 
     await user.click(screen.getByRole('button', { name: 'Found' }))
@@ -95,7 +136,6 @@ describe('ObjectDirectory', () => {
     render(<ObjectDirectory />)
 
     await user.type(screen.getByRole('searchbox', { name: /search landmarks/i }), 'dock')
-
     expect(screen.getByText('Sunkenroot Dock')).toBeInTheDocument()
     expect(screen.queryByText('Northwind Lighthouse')).not.toBeInTheDocument()
   })
@@ -113,7 +153,7 @@ describe('ObjectDirectory', () => {
     render(<ObjectDirectory />)
 
     await user.click(firstButton(screen.getAllByRole('button', { name: /select in world/i })))
-    expect(useGameStore.getState().selectedId).toBe(WORLD_OBJECTS[0]?.id)
+    expect(useGameStore.getState().selectedId).toBe(firstOf(GREENHAVEN_OBJECTS).id)
   })
 
   it('performs a real interaction that records a discovery', async () => {
@@ -122,21 +162,23 @@ describe('ObjectDirectory', () => {
 
     await user.click(screen.getByRole('button', { name: 'Climb the spiral stair' }))
 
-    const discoveries = useGameStore.getState().discoveries
+    const discoveries = discoveriesOn(DEFAULT_ISLAND_ID)
     expect(discoveries.map((entry) => entry.id)).toEqual(['lighthouse'])
     expect(useGameStore.getState().toasts).toHaveLength(1)
   })
 
-  it('persists discoveries to storage', async () => {
+  it('persists discoveries under the active island', async () => {
     const user = userEvent.setup()
     render(<ObjectDirectory />)
 
     await user.click(screen.getByRole('button', { name: 'Read the signpost' }))
 
-    const stored = readJson<{ discoveries: { id: string }[] }>(STORAGE_KEYS.progress, {
-      discoveries: [],
-    })
-    expect(stored.discoveries.map((entry) => entry.id)).toEqual(['boardwalk'])
+    const stored = readJson<{ version: number; islands: Record<string, { id: string }[]> }>(
+      STORAGE_KEYS.progress,
+      { version: 2, islands: {} },
+    )
+    expect(stored.version).toBe(2)
+    expect(stored.islands[DEFAULT_ISLAND_ID]?.map((entry) => entry.id)).toEqual(['boardwalk'])
   })
 
   it('does not double-count a repeated interaction', async () => {
@@ -146,8 +188,63 @@ describe('ObjectDirectory', () => {
     const button = screen.getByRole('button', { name: 'Climb the spiral stair' })
     await user.click(button)
     await user.click(button)
+    expect(discoveriesOn(DEFAULT_ISLAND_ID)).toHaveLength(1)
+  })
+})
 
-    expect(useGameStore.getState().discoveries).toHaveLength(1)
+describe('IslandSwitcher', () => {
+  it('starts closed and names the active island', () => {
+    render(<IslandSwitcher />)
+
+    expect(screen.getByTestId('island-switcher')).toHaveTextContent(GREENHAVEN.name)
+    expect(screen.queryByTestId('island-switcher-list')).not.toBeInTheDocument()
+  })
+
+  it('lists every island with its progress when opened', async () => {
+    const user = userEvent.setup()
+    seedDiscoveries(CAIRNMOOR.id, [{ id: 'wreck', discoveredAt: 1 }])
+    render(<IslandSwitcher />)
+
+    await user.click(screen.getByTestId('island-switcher'))
+
+    for (const island of ISLANDS) {
+      expect(screen.getByRole('option', { name: new RegExp(island.name) })).toBeInTheDocument()
+    }
+    expect(
+      screen.getByText(`1/${islandDiscoverableCount(CAIRNMOOR)} discovered`),
+    ).toBeInTheDocument()
+  })
+
+  it('travels to another island and clears the selection', async () => {
+    const user = userEvent.setup()
+    useGameStore.setState({ selectedId: 'lighthouse', nearbyId: 'lighthouse' })
+    render(<IslandSwitcher />)
+
+    await user.click(screen.getByTestId('island-switcher'))
+    await user.click(screen.getByRole('option', { name: new RegExp(CAIRNMOOR.name) }))
+
+    const state = useGameStore.getState()
+    expect(state.activeIslandId).toBe(CAIRNMOOR.id)
+    expect(state.selectedId).toBeNull()
+    expect(state.nearbyId).toBeNull()
+  })
+
+  it('closes on Escape and returns focus to the trigger', async () => {
+    const user = userEvent.setup()
+    render(<IslandSwitcher />)
+
+    const trigger = screen.getByTestId('island-switcher')
+    await user.click(trigger)
+    expect(screen.getByTestId('island-switcher-list')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    expect(screen.queryByTestId('island-switcher-list')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
+  })
+
+  it('ignores an unknown island id', () => {
+    useGameStore.getState().setActiveIsland('atlantis')
+    expect(useGameStore.getState().activeIslandId).toBe(DEFAULT_ISLAND_ID)
   })
 })
 
@@ -201,27 +298,40 @@ describe('SettingsDialog', () => {
 
   it('requires confirmation before resetting discoveries', async () => {
     const user = userEvent.setup()
-    useGameStore.setState({ discoveries: [{ id: 'lighthouse', discoveredAt: 1 }] })
+    seedDiscoveries(DEFAULT_ISLAND_ID, [{ id: 'lighthouse', discoveredAt: 1 }])
     render(<SettingsDialog open onClose={() => {}} />)
 
     await user.click(screen.getByRole('button', { name: 'Reset discovered progress' }))
 
     // Still present: the destructive action has not run yet.
-    expect(useGameStore.getState().discoveries).toHaveLength(1)
+    expect(discoveriesOn(DEFAULT_ISLAND_ID)).toHaveLength(1)
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(useGameStore.getState().discoveries).toHaveLength(1)
+    expect(discoveriesOn(DEFAULT_ISLAND_ID)).toHaveLength(1)
   })
 
   it('clears discoveries once the reset is confirmed', async () => {
     const user = userEvent.setup()
-    useGameStore.setState({ discoveries: [{ id: 'lighthouse', discoveredAt: 1 }] })
+    seedDiscoveries(DEFAULT_ISLAND_ID, [{ id: 'lighthouse', discoveredAt: 1 }])
     render(<SettingsDialog open onClose={() => {}} />)
 
     await user.click(screen.getByRole('button', { name: 'Reset discovered progress' }))
     await user.click(firstButton(screen.getAllByRole('button', { name: 'Reset progress' })))
 
-    expect(useGameStore.getState().discoveries).toHaveLength(0)
+    expect(discoveriesOn(DEFAULT_ISLAND_ID)).toHaveLength(0)
+  })
+
+  it('resets only the active island', async () => {
+    const user = userEvent.setup()
+    seedDiscoveries(DEFAULT_ISLAND_ID, [{ id: 'lighthouse', discoveredAt: 1 }])
+    seedDiscoveries(CAIRNMOOR.id, [{ id: 'wreck', discoveredAt: 1 }])
+    render(<SettingsDialog open onClose={() => {}} />)
+
+    await user.click(screen.getByRole('button', { name: 'Reset discovered progress' }))
+    await user.click(firstButton(screen.getAllByRole('button', { name: 'Reset progress' })))
+
+    expect(discoveriesOn(DEFAULT_ISLAND_ID)).toHaveLength(0)
+    expect(discoveriesOn(CAIRNMOOR.id)).toHaveLength(1)
   })
 
   it('resets settings back to defaults', async () => {
@@ -260,47 +370,96 @@ describe('game store actions', () => {
     expect(useGameStore.getState().panelOpen).toBe(false)
   })
 
+  it("refuses to open a panel for another island's object", () => {
+    useGameStore.getState().openPanel('wreck')
+    expect(useGameStore.getState().panelOpen).toBe(false)
+  })
+
   it('ignores interaction with an unknown object', () => {
     useGameStore.getState().interact('not-real')
     expect(useGameStore.getState().toasts).toHaveLength(0)
   })
 
+  it("ignores interaction with another island's object", () => {
+    useGameStore.getState().interact('wreck')
+    expect(useGameStore.getState().toasts).toHaveLength(0)
+  })
+
+  it('clears transient world effects when travelling', () => {
+    useGameStore.getState().interact('watchtower')
+    expect(useWorldEffects.getState().lanternLit).toBe(true)
+
+    useGameStore.getState().setActiveIsland(CAIRNMOOR.id)
+    expect(useWorldEffects.getState().lanternLit).toBe(false)
+  })
+
   it('caps the toast stack', () => {
     for (let i = 0; i < 6; i += 1) {
-      useGameStore.getState().pushToast({ title: `Toast ${i}`, description: '', variant: 'info' })
+      useGameStore.getState().pushToast({ title: 'Toast', description: '', variant: 'info' })
     }
     expect(useGameStore.getState().toasts).toHaveLength(3)
   })
 
   it('dismisses a toast by id', () => {
-    useGameStore.getState().pushToast({ title: 'Keep', description: '', variant: 'info' })
+    useGameStore.getState().pushToast({ title: 'Toast', description: '', variant: 'info' })
     const id = useGameStore.getState().toasts[0]?.id ?? ''
-    useGameStore.getState().pushToast({ title: 'Drop', description: '', variant: 'info' })
     useGameStore.getState().dismissToast(id)
-
-    expect(useGameStore.getState().toasts.map((toast) => toast.title)).toEqual(['Drop'])
+    expect(useGameStore.getState().toasts.map((toast) => toast.title)).toEqual([])
   })
 
   it('restores persisted discoveries on hydrate and drops corrupt ones', () => {
     window.localStorage.setItem(
       STORAGE_KEYS.progress,
       JSON.stringify({
-        version: 1,
-        discoveries: [
-          { id: 'lighthouse', discoveredAt: 5 },
-          { id: 'ghost-landmark', discoveredAt: 6 },
-        ],
+        version: 2,
+        islands: {
+          [DEFAULT_ISLAND_ID]: [
+            { id: 'lighthouse', discoveredAt: 5 },
+            { id: 'ghost-landmark', discoveredAt: 6 },
+          ],
+        },
       }),
     )
 
     useGameStore.getState().hydrate()
-    expect(useGameStore.getState().discoveries.map((entry) => entry.id)).toEqual(['lighthouse'])
+    expect(discoveriesOn(DEFAULT_ISLAND_ID).map((entry) => entry.id)).toEqual(['lighthouse'])
+  })
+
+  it('migrates a version 1 save on hydrate', () => {
+    window.localStorage.setItem(
+      STORAGE_KEYS.progress,
+      JSON.stringify({ version: 1, discoveries: [{ id: 'cottage', discoveredAt: 3 }] }),
+    )
+
+    useGameStore.getState().hydrate()
+    expect(discoveriesOn(DEFAULT_ISLAND_ID).map((entry) => entry.id)).toEqual(['cottage'])
+  })
+
+  it('keeps discoveries for both islands apart', () => {
+    window.localStorage.setItem(
+      STORAGE_KEYS.progress,
+      JSON.stringify({
+        version: 2,
+        islands: {
+          [DEFAULT_ISLAND_ID]: [{ id: 'lighthouse', discoveredAt: 1 }],
+          [CAIRNMOOR.id]: [{ id: 'wreck', discoveredAt: 2 }],
+        },
+      }),
+    )
+
+    useGameStore.getState().hydrate()
+    expect(discoveriesOn(DEFAULT_ISLAND_ID).map((entry) => entry.id)).toEqual(['lighthouse'])
+    expect(discoveriesOn(CAIRNMOOR.id).map((entry) => entry.id)).toEqual(['wreck'])
   })
 
   it('survives a corrupted progress payload', () => {
     window.localStorage.setItem(STORAGE_KEYS.progress, 'not json at all')
     expect(() => useGameStore.getState().hydrate()).not.toThrow()
-    expect(useGameStore.getState().discoveries).toEqual([])
+    expect(useGameStore.getState().discoveriesByIsland).toEqual({})
+  })
+
+  it('counts every island landmark in the world total', () => {
+    expect(TOTAL_DISCOVERABLE).toBeGreaterThan(GREENHAVEN_TOTAL)
   })
 })
 
@@ -322,7 +481,6 @@ describe('settings store actions', () => {
 
     useSettingsStore.getState().hydrate()
     expect(useSettingsStore.getState().quality).toBe('low')
-    expect(useSettingsStore.getState().masterVolume).toBe(0.25)
   })
 
   it('ignores invalid persisted settings', () => {

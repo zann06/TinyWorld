@@ -2,12 +2,14 @@ import { useRef, useState } from 'react'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { WORLD_OBJECTS } from '@/data/objects'
+import type { IslandDefinition } from '@/types'
 import { OBJECT_VISUALS, isKnownVisual } from '@/world/objects/visual-registry'
-import { terrainHeight } from '@/world/terrain/terrain'
-import { useGameStore } from '@/store/game-store'
+import type { Terrain } from '@/world/terrain/terrain'
+import { useActiveDiscoveries, useGameStore } from '@/store/game-store'
 
 export interface InteractiveObjectsProps {
+  island: IslandDefinition
+  terrain: Terrain
   /** Called with the object id, or null when the background is clicked. */
   onSelect: (id: string | null) => void
 }
@@ -19,21 +21,21 @@ export interface InteractiveObjectsProps {
  * frame, because hover changes at human speed. Per-frame values (selection ring
  * pulse) are animated inside the Three.js frame loop.
  */
-export function InteractiveObjects({ onSelect }: InteractiveObjectsProps) {
+export function InteractiveObjects({ island, terrain, onSelect }: InteractiveObjectsProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const selectedId = useGameStore((state) => state.selectedId)
-  const discoveries = useGameStore((state) => state.discoveries)
+  const discoveries = useActiveDiscoveries()
   const discoveredIds = new Set(discoveries.map((entry) => entry.id))
 
   return (
     <group>
-      {WORLD_OBJECTS.map((object) => {
+      {island.objects.map((object) => {
         // Objects with an unknown visual are skipped rather than crashing the
         // scene; the registry test suite fails CI if this ever happens.
         if (!isKnownVisual(object.visual)) return null
         const Visual = OBJECT_VISUALS[object.visual]
 
-        const y = terrainHeight(object.position.x, object.position.z)
+        const y = terrain.height(object.position.x, object.position.z)
         const isSelected = selectedId === object.id
         const isHovered = hoveredId === object.id
         const isFound = discoveredIds.has(object.id)

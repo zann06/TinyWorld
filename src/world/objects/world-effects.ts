@@ -12,13 +12,19 @@ interface WorldEffectsStore {
   sailsTurned: number
   /** Applies an interaction effect. Returns true when something changed. */
   apply: (effect: NonNullable<InteractionOutcome['effect']>) => boolean
+  /** Clears every effect. Called when changing island or resetting progress. */
+  reset: () => void
 }
 
-export const useWorldEffects = create<WorldEffectsStore>()((set, get) => ({
+const INITIAL = {
   lanternLit: false,
   fireStoked: false,
   springTouched: false,
   sailsTurned: 0,
+} as const
+
+export const useWorldEffects = create<WorldEffectsStore>()((set, get) => ({
+  ...INITIAL,
 
   apply: (effect) => {
     switch (effect) {
@@ -45,4 +51,6 @@ export const useWorldEffects = create<WorldEffectsStore>()((set, get) => ({
         return false
     }
   },
+
+  reset: () => set({ ...INITIAL }),
 }))

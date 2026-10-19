@@ -1,5 +1,12 @@
 # Controls
 
+## Switching islands
+
+The island switcher sits in the top-left of the header, next to the island name.
+It lists every island with its discovery count; choose one to travel. Travel is
+instant, each island remembers where you left off, and clearing progress in
+settings only affects the island you are standing on.
+
 ## Desktop
 
 | Input                         | Action                                                              |
@@ -39,12 +46,16 @@ scrim.
 
 Every important action has an equivalent that does not depend on 3D input:
 
-- The **island directory** lists all ten landmarks with their full text,
-  category and discovery status, and can be searched and filtered.
+- The **island directory** lists every landmark on the island you are standing
+  on with their full text, category and discovery status, and can be searched
+  and filtered.
 - Each directory card can **select** a landmark in the world or perform its
   interaction directly.
 - The **discovery journal** is the same directory, opened as a modal.
-- Selecting a landmark from the directory also moves the camera to frame it.
+- The **island switcher** is a single button that opens a listbox; `Escape`
+  closes it and returns focus to the button.
+
+Selecting a landmark from the directory also moves the camera to frame it.
 
 There is a skip link at the top of the page that jumps straight to the
 directory.
@@ -78,7 +89,7 @@ window, so the interface is genuinely absent from the exported image.
 | Reduce motion             | Disables camera easing and interface animation.                                                |
 | Show heads-up display     | Hides the interface for screenshots.                                                           |
 | Reset settings            | Restores defaults after confirmation.                                                          |
-| Reset discovered progress | Clears all discoveries after confirmation.                                                     |
+| Reset discovered progress | Clears discoveries on the current island after confirmation. Other islands are untouched.     |
 
 Settings and progress are stored in this browser only. There is no account and
 no server.

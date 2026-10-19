@@ -1,58 +1,53 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { FLOWER_PATCHES, OBSTACLES, PATH_POINTS, ROCK_CLUSTERS, TREE_CLUSTERS } from '@/data/world'
+import type { IslandDefinition } from '@/types'
 import { InstancedProp } from '@/world/objects/InstancedProp'
 import { Geometries } from '@/world/objects/geometry'
 import { PROP_COLORS, matteMaterial } from '@/world/objects/materials'
-import {
-  buildTerrainGeometry,
-  samplePath,
-  scatterInCluster,
-  seededRandom,
-  terrainHeight,
-  terrainNormal,
-} from '@/world/terrain/terrain'
+import { scatterInCluster, seededRandom, type Terrain } from '@/world/terrain/terrain'
 import { useSettingsStore } from '@/store/settings-store'
 
 export interface EnvironmentProps {
   shadows: boolean
+  island: IslandDefinition
+  terrain: Terrain
 }
 
 /** Decorative instanced vegetation: trees, rocks, grass tufts, flowers. */
-export function Vegetation({ shadows }: EnvironmentProps) {
+export function Vegetation({ shadows, island, terrain }: EnvironmentProps) {
   const quality = useSettingsStore((s) => s.quality)
 
   const data = useMemo(() => {
-    const rand = seededRandom(20_240_617)
-    const blocked = OBSTACLES.map((o) => ({ x: o.x, z: o.z, radius: o.radius }))
+    const rand = seededRandom(island.seed)
+    const blocked = island.obstacles.map((o) => ({ x: o.x, z: o.z, radius: o.radius }))
 
     // Trees avoid cliffs; rocks happily perch on them.
-    const treePoints = TREE_CLUSTERS.flatMap((cluster) =>
-      scatterInCluster(cluster, cluster.radius, cluster.count, rand, blocked, {
+    const treePoints = island.scatter.tree.flatMap((cluster) =>
+      scatterInCluster(terrain, cluster, cluster.count, rand, blocked, {
         jitter: 0.95,
         maxSlope: 0.85,
         minHeight: 0.2,
       }),
     )
 
-    const rockPoints = ROCK_CLUSTERS.flatMap((cluster) =>
-      scatterInCluster(cluster, cluster.radius, cluster.count, rand, blocked, {
+    const rockPoints = island.scatter.rock.flatMap((cluster) =>
+      scatterInCluster(terrain, cluster, cluster.count, rand, blocked, {
         jitter: 0.9,
         maxSlope: 2.4,
         minHeight: -0.6,
       }),
     )
 
-    const grassPoints = FLOWER_PATCHES.flatMap((patch) =>
-      scatterInCluster(patch, patch.radius, Math.round(patch.count * 1.6), rand, blocked, {
+    const grassPoints = island.scatter.flower.flatMap((patch) =>
+      scatterInCluster(terrain, patch, Math.round(patch.count * 1.6), rand, blocked, {
         jitter: 0.95,
         maxSlope: 1.4,
         minHeight: 0.1,
       }),
     )
 
-    const flowerPoints = FLOWER_PATCHES.flatMap((patch) =>
-      scatterInCluster(patch, patch.radius * 0.7, patch.count, rand, blocked, {
+    const flowerPoints = island.scatter.flower.flatMap((patch) =>
+      scatterInCluster(terrain, patch, patch.count, rand, blocked, {
         jitter: 0.85,
         maxSlope: 1.1,
         minHeight: 0.1,
@@ -66,7 +61,7 @@ export function Vegetation({ shadows }: EnvironmentProps) {
       alignToSlope = false,
     ) =>
       points.map((point) => {
-        const height = terrainHeight(point.x, point.z)
+        const height = terrain.height(point.x, point.z)
         const rotationY = rand() * Math.PI * 2
 
         if (!alignToSlope) {
@@ -78,7 +73,7 @@ export function Vegetation({ shadows }: EnvironmentProps) {
         }
 
         // Lean the prop into the hillside so it never appears to float.
-        const normal = terrainNormal(point.x, point.z)
+        const normal = terrain.normal(point.x, point.z)
         return {
           position: [point.x, height + yOffset, point.z] as [number, number, number],
           rotationY,
@@ -95,7 +90,7 @@ export function Vegetation({ shadows }: EnvironmentProps) {
       grass: build(grassPoints, [0.7, 1.4], 0.25, true),
       flowers: build(flowerPoints, [0.8, 1.5], 0.5, false),
     }
-  }, [])
+  }, [island, terrain])
 
   const qualityScale = quality === 'low' ? 0.45 : quality === 'medium' ? 0.75 : 1
   const trim = <T,>(items: T[], factor: number): T[] =>
@@ -160,9 +155,9 @@ export function Vegetation({ shadows }: EnvironmentProps) {
   )
 }
 
-/** The island surface. Built once and shared by the whole scene. */
-export function Terrain() {
-  const geometry = useMemo(() => buildTerrainGeometry(110), [])
+/** The island surface. Rebuilt whenever the island changes. */
+export function Terrain({ terrain }: EnvironmentProps) {
+  const geometry = useMemo(() => terrain.buildGeometry(110), [terrain])
 
   return (
     <mesh geometry={geometry} receiveShadow castShadow>
@@ -172,8 +167,12 @@ export function Terrain() {
 }
 
 /** Flat-shaded path discs following the footpath samples. */
-export function IslandPath() {
-  const points = useMemo(() => samplePath(PATH_POINTS, 10), [])
+export function IslandPath({ island, terrain }: EnvironmentProps) {
+  const points = useMemo(() => terrain.samplePath(island.path, 10), [island, terrain])
+  const material = useMemo(
+    () => matteMaterial('path', PROP_COLORS.path, undefined, island.id),
+    [island.id],
+  )
 
   return (
     <group>
@@ -181,7 +180,7 @@ export function IslandPath() {
         <mesh
           key={`path-${index}`}
           geometry={Geometries.pathDisc()}
-          material={matteMaterial('path', PROP_COLORS.path)}
+          material={material}
           position={[point.x, point.y + 0.06, point.z]}
           scale={1.15}
           receiveShadow
@@ -193,43 +192,44 @@ export function IslandPath() {
 }
 
 /** Animated water plane surrounding the island. */
-export function Water() {
-  const material = useMemo(() => {
-    return new THREE.MeshLambertMaterial({
-      color: PROP_COLORS.water,
+export function Water({ island }: EnvironmentProps) {
+  // Ring radii follow the island, so a smaller island gets a proportionally
+  // tighter shelf and foam line instead of two rings hanging in open water.
+  const { radius, palette } = island
+
+  const materials = useMemo(() => {
+    const deep = new THREE.MeshLambertMaterial({
+      color: palette.water,
       transparent: true,
       opacity: 0.9,
     })
-  }, [])
+    const shallow = matteMaterial(
+      'shallow',
+      palette.waterShallow,
+      { transparent: true, opacity: 0.6 },
+      island.id,
+    )
+    const foam = matteMaterial('foam', '#dff3ee', { transparent: true, opacity: 0.45 }, island.id)
+    return { deep, shallow, foam }
+  }, [island.id, palette])
 
   return (
     <group>
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.55, 0]}
-        material={material}
+        material={materials.deep}
         receiveShadow
       >
         <planeGeometry args={[900, 900, 1, 1]} />
       </mesh>
       {/* Lighter shelf around the island to suggest shallow water */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.44, 0]}
-        material={matteMaterial('shallow', PROP_COLORS.waterShallow, {
-          transparent: true,
-          opacity: 0.6,
-        })}
-      >
-        <ringGeometry args={[42, 76, 56]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.44, 0]} material={materials.shallow}>
+        <ringGeometry args={[radius * 0.91, radius * 1.65, 56]} />
       </mesh>
       {/* Foam line hugging the shoreline */}
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.3, 0]}
-        material={matteMaterial('foam', '#dff3ee', { transparent: true, opacity: 0.45 })}
-      >
-        <ringGeometry args={[45.5, 49, 56]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.3, 0]} material={materials.foam}>
+        <ringGeometry args={[radius * 0.99, radius * 1.065, 56]} />
       </mesh>
     </group>
   )

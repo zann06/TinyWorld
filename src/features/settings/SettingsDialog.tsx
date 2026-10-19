@@ -7,9 +7,9 @@ import {
   MIN_SENSITIVITY,
   TIME_PRESETS,
 } from '@/store/settings-defaults'
-import { useGameStore } from '@/store/game-store'
+import { useActiveDiscoveries, useActiveIsland, useGameStore } from '@/store/game-store'
 import { useSettingsStore } from '@/store/settings-store'
-import { TOTAL_DISCOVERABLE } from '@/data/objects'
+import { islandDiscoverableCount } from '@/data/objects'
 import type { QualityLevel, TimeOfDayPreset } from '@/types'
 
 export interface SettingsDialogProps {
@@ -85,7 +85,10 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
   const settings = useSettingsStore()
   const resetProgress = useGameStore((state) => state.resetProgress)
   const pushToast = useGameStore((state) => state.pushToast)
-  const discoveryCount = useGameStore((state) => state.discoveries.length)
+  const island = useActiveIsland()
+  const discoveries = useActiveDiscoveries()
+  const discoveryCount = discoveries.length
+  const landmarkTotal = islandDiscoverableCount(island)
 
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmResetSettings, setConfirmResetSettings] = useState(false)
@@ -280,8 +283,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               Reset
             </h3>
             <p className="mt-1 text-xs text-muted">
-              You have found {discoveryCount} of {TOTAL_DISCOVERABLE} landmarks. Resetting progress
-              cannot be undone.
+              You have found {discoveryCount} of {landmarkTotal} landmarks on {island.name}.
+              Resetting progress cannot be undone, and only affects this island.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -312,8 +315,8 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
       <ConfirmDialog
         open={confirmReset}
         title="Reset discovered progress?"
-        description="Every discovery on Greenhaven Island will be cleared."
-        detail={`You currently have ${discoveryCount} of ${TOTAL_DISCOVERABLE} landmarks recorded. This cannot be undone.`}
+        description={`Every discovery on ${island.name} will be cleared.`}
+        detail={`You currently have ${discoveryCount} of ${landmarkTotal} landmarks recorded on this island. This cannot be undone.`}
         confirmLabel="Reset progress"
         onCancel={() => setConfirmReset(false)}
         onConfirm={() => {

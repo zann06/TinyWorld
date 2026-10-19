@@ -1,9 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { OBSTACLES, SPAWN_POSITION } from '@/data/world'
-import { WORLD_OBJECTS } from '@/data/objects'
-import { terrainHeight } from '@/world/terrain/terrain'
+import type { IslandDefinition } from '@/types'
+import { createTerrain } from '@/world/terrain/terrain'
 import { findNearest, normaliseInput, resolvePosition, wrapAngle } from '@/game/collision/collision'
 import { moveVectorToInput, readMoveVector } from '@/game/input/input'
 import {
@@ -25,6 +24,7 @@ const SESSION_SAVE_INTERVAL = 4
 const FOCUS_DURATION = 1.1
 
 export interface CameraRigProps {
+  island: IslandDefinition
   /** Fired when the object within interaction range changes. */
   onNearbyChange: (id: string | null) => void
   /** Frozen while a dialog is open or photo mode is active. */
@@ -32,13 +32,11 @@ export interface CameraRigProps {
 }
 
 /** Interactable objects considered for the proximity prompt. */
-const PROXIMITY_CANDIDATES = WORLD_OBJECTS.filter((object) => object.interactable).map(
-  (object) => ({
-    id: object.id,
-    position: object.position,
-    radius: object.radius,
-  }),
-)
+function proximityCandidates(island: IslandDefinition) {
+  return island.objects
+    .filter((object) => object.interactable)
+    .map((object) => ({ id: object.id, position: object.position, radius: object.radius }))
+}
 
 /**
  * Third-person follow camera with WASD / touch movement.
@@ -46,29 +44,45 @@ const PROXIMITY_CANDIDATES = WORLD_OBJECTS.filter((object) => object.interactabl
  * All per-frame work happens inside the R3F frame loop against the mutable
  * `movementState` object — React is never re-rendered for movement or camera.
  */
-export function CameraRig({ onNearbyChange, inputEnabled }: CameraRigProps) {
+export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigProps) {
   const camera = useThree((state) => state.camera)
   const reducedMotion = useSettingsStore((s) => s.reducedMotion)
   const selectedId = useGameStore((s) => s.selectedId)
 
-  const initialised = useRef(false)
+  const terrain = useMemo(() => createTerrain(island), [island])
+  const candidates = useMemo(() => proximityCandidates(island), [island])
+  const obstacles = island.obstacles
+
+  const initialised = useRef<string | null>(null)
   const proximityLastRun = useRef(-Infinity)
   const lastSaveTime = useRef(0)
   const focusTimer = useRef(0)
 
-  // Restore the previous session on first mount, clamped to walkable ground.
+  // Restore this island's previous session on first mount, clamped to walkable
+  // ground. `initialised` is keyed by island, so travelling rebuilds the rig.
+  const islandId = island.id
   useEffect(() => {
-    if (initialised.current) return
-    initialised.current = true
+    if (initialised.current === islandId) return
+    initialised.current = islandId
 
-    const session = readResumeSession()
-    const start = session ? session.position : { ...SPAWN_POSITION }
-    const resolved = resolvePosition({ x: start.x, z: start.z }, PLAYER_RADIUS, OBSTACLES)
+    const session = readResumeSession(islandId)
+    const start = session ? session.position : { ...island.spawn }
+    const resolved = resolvePosition(
+      { x: start.x, z: start.z },
+      PLAYER_RADIUS,
+      obstacles,
+      terrain.coastRadiusAt,
+    )
 
     movementState.player.x = resolved.position.x
     movementState.player.z = resolved.position.z
-    movementState.yaw = session ? session.yaw : 0.6
-  }, [])
+    movementState.yaw = session ? session.yaw : island.defaultYaw
+    // A stale drag or held key must not carry into the new island.
+    movementState.pendingYawDelta = 0
+    movementState.pendingPitchDelta = 0
+    movementState.pendingZoomDelta = 0
+    movementState.speed = 0
+  }, [islandId, island.spawn, island.defaultYaw, obstacles, terrain])
 
   // Start a focus drift whenever the selection changes.
   useEffect(() => {
@@ -124,14 +138,15 @@ export function CameraRig({ onNearbyChange, inputEnabled }: CameraRigProps) {
           z: movementState.player.z + direction.z * speed * dt,
         },
         PLAYER_RADIUS,
-        OBSTACLES,
+        obstacles,
+        terrain.coastRadiusAt,
       )
       movementState.player.x = resolved.position.x
       movementState.player.z = resolved.position.z
     }
 
     // ---- camera ----------------------------------------------------------
-    const playerGround = terrainHeight(movementState.player.x, movementState.player.z)
+    const playerGround = terrain.height(movementState.player.x, movementState.player.z)
     const focus = new THREE.Vector3(
       movementState.player.x,
       playerGround + 1.6,
@@ -141,11 +156,11 @@ export function CameraRig({ onNearbyChange, inputEnabled }: CameraRigProps) {
     // Drift toward the selected landmark for a moment after selection.
     if (focusTimer.current > 0 && selectedId) {
       focusTimer.current -= dt
-      const object = WORLD_OBJECTS.find((entry) => entry.id === selectedId)
+      const object = island.objects.find((entry) => entry.id === selectedId)
       if (object) {
         const target = new THREE.Vector3(
           object.position.x,
-          terrainHeight(object.position.x, object.position.z) + 1.5,
+          terrain.height(object.position.x, object.position.z) + 1.5,
           object.position.z,
         )
         focus.lerp(target, 0.45)
@@ -162,7 +177,7 @@ export function CameraRig({ onNearbyChange, inputEnabled }: CameraRigProps) {
     )
 
     // Keep the camera above the terrain, never below the island surface.
-    const groundAtCamera = terrainHeight(desired.x, desired.z) + 1.8
+    const groundAtCamera = terrain.height(desired.x, desired.z) + 1.8
     if (desired.y < groundAtCamera) desired.y = groundAtCamera
 
     const damping = reducedMotion ? 100 : 7
@@ -176,7 +191,7 @@ export function CameraRig({ onNearbyChange, inputEnabled }: CameraRigProps) {
       proximityLastRun.current = now
       const nearest = findNearest(
         { x: movementState.player.x, z: movementState.player.z },
-        PROXIMITY_CANDIDATES,
+        candidates,
         INTERACTION_REACH,
       )
       onNearbyChange(nearest?.id ?? null)
@@ -185,7 +200,7 @@ export function CameraRig({ onNearbyChange, inputEnabled }: CameraRigProps) {
     // ---- session persistence ---------------------------------------------
     if (now - lastSaveTime.current >= SESSION_SAVE_INTERVAL) {
       lastSaveTime.current = now
-      writeResumeSession({
+      writeResumeSession(islandId, {
         position: { x: movementState.player.x, z: movementState.player.z },
         yaw: movementState.yaw,
       })

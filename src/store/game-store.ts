@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { DiscoveryEntry, GameState } from '@/types'
+import type { DiscoveryEntry, GameState, IslandDefinition } from '@/types'
 import { STORAGE_KEYS, readJson, removeKey, writeJson } from '@/lib/storage'
-import { KNOWN_OBJECT_IDS, TOTAL_DISCOVERABLE, getObjectById } from '@/data/objects'
-import { normaliseProgress } from '@/store/progress-schema'
+import { getObjectById, islandDiscoverableCount } from '@/data/objects'
+import { DEFAULT_ISLAND_ID, getIsland, islandOfObjectId, isKnownIsland } from '@/data/islands'
+import { normaliseProgress, type StoredProgress } from '@/store/progress-schema'
 import { addDiscovery, discoveredIds, summariseProgress } from '@/game/discovery/discovery'
 import { resolveInteraction } from '@/game/interaction/interaction'
 import { useWorldEffects } from '@/world/objects/world-effects'
@@ -15,8 +16,10 @@ export interface ToastPayload {
   variant: 'success' | 'info' | 'error'
 }
 
-interface GameStore extends GameState {
+interface GameStore extends Omit<GameState, 'discoveries'> {
   toasts: ToastPayload[]
+  /** Discoveries for every island, keyed by island id. */
+  discoveriesByIsland: Record<string, DiscoveryEntry[]>
 
   select: (id: string | null) => void
   setNearby: (id: string | null) => void
@@ -28,6 +31,9 @@ interface GameStore extends GameState {
   setUiFirstMode: (value: boolean) => void
   completeOnboarding: () => void
   dismissOnboarding: () => void
+
+  /** Travel to another island, clearing the selection and the world effects. */
+  setActiveIsland: (islandId: string) => void
 
   /** Runs an object's real action and records discovery when appropriate. */
   interact: (id: string) => void
@@ -49,26 +55,64 @@ export interface StoredSession {
   yaw: number
 }
 
-function loadSession(): StoredSession | null {
-  const raw = readJson<unknown>(SESSION_KEY, null)
+/** Sessions for every island, so switching back does not lose the position. */
+interface StoredSessions {
+  version: 2
+  islands: Record<string, StoredSession>
+}
+
+const EMPTY_SESSIONS: StoredSessions = { version: 2, islands: {} }
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+/** Read one island's saved position, rejecting anything malformed. */
+function readSessionEntry(raw: unknown): StoredSession | null {
   if (typeof raw !== 'object' || raw === null) return null
 
   const record = raw as Record<string, unknown>
   const position = record['position']
-  const yaw = record['yaw']
-
   if (typeof position !== 'object' || position === null) return null
-  const pos = position as Record<string, unknown>
-  if (typeof pos['x'] !== 'number' || typeof pos['z'] !== 'number') return null
-  if (!Number.isFinite(pos['x']) || !Number.isFinite(pos['z'])) return null
-  if (typeof yaw !== 'number' || !Number.isFinite(yaw)) return null
 
-  return { position: { x: pos['x'], z: pos['z'] }, yaw }
+  const pos = position as Record<string, unknown>
+  if (!isFiniteNumber(pos['x']) || !isFiniteNumber(pos['z'])) return null
+  if (!isFiniteNumber(record['yaw'])) return null
+
+  return { position: { x: pos['x'], z: pos['z'] }, yaw: record['yaw'] }
+}
+
+function loadSessions(): StoredSessions {
+  const raw = readJson<unknown>(SESSION_KEY, null)
+  if (typeof raw !== 'object' || raw === null) return EMPTY_SESSIONS
+
+  const record = raw as Record<string, unknown>
+
+  // Version 1 stored a single session for the only island that existed.
+  if (record['version'] !== 2) {
+    const legacy = readSessionEntry(record)
+    return legacy ? { version: 2, islands: { [DEFAULT_ISLAND_ID]: legacy } } : EMPTY_SESSIONS
+  }
+
+  const islands = record['islands']
+  if (typeof islands !== 'object' || islands === null) return EMPTY_SESSIONS
+
+  const parsed: Record<string, StoredSession> = {}
+  for (const [islandId, entry] of Object.entries(islands as Record<string, unknown>)) {
+    if (!isKnownIsland(islandId)) continue
+    const session = readSessionEntry(entry)
+    if (session) parsed[islandId] = session
+  }
+
+  return { version: 2, islands: parsed }
 }
 
 export const useGameStore = create<GameStore>()((set, get) => {
-  const persistProgress = (discoveries: DiscoveryEntry[]): boolean =>
-    writeJson(STORAGE_KEYS.progress, { version: 1, discoveries })
+  const persistProgress = (islands: Record<string, DiscoveryEntry[]>): boolean =>
+    writeJson(STORAGE_KEYS.progress, {
+      version: 2,
+      islands,
+    } satisfies StoredProgress)
 
   return {
     selectedId: null,
@@ -79,7 +123,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
     photoMode: false,
     onboardingComplete: false,
     uiFirstMode: false,
-    discoveries: [],
+    activeIslandId: DEFAULT_ISLAND_ID,
+    discoveriesByIsland: {},
     lastDiscoveredId: null,
     toasts: [],
 
@@ -91,7 +136,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     },
 
     openPanel: (id) => {
-      if (!getObjectById(id)) return
+      if (!getObjectById(getIsland(get().activeIslandId), id)) return
       set({ selectedId: id, panelOpen: true })
       get().interact(id)
     },
@@ -110,8 +155,25 @@ export const useGameStore = create<GameStore>()((set, get) => {
 
     dismissOnboarding: () => set({ onboardingComplete: true }),
 
+    setActiveIsland: (islandId) => {
+      if (!isKnownIsland(islandId)) return
+      if (islandId === get().activeIslandId) return
+
+      // A landmark from the island being left must never stay selected, and the
+      // transient effects do not carry across.
+      useWorldEffects.getState().reset()
+      set({
+        activeIslandId: islandId,
+        selectedId: null,
+        nearbyId: null,
+        panelOpen: false,
+        lastDiscoveredId: null,
+      })
+    },
+
     interact: (id) => {
-      const outcome = resolveInteraction(id)
+      const island = getIsland(get().activeIslandId)
+      const outcome = resolveInteraction(island, id)
       if (!outcome) return
 
       if (outcome.effect) {
@@ -120,19 +182,21 @@ export const useGameStore = create<GameStore>()((set, get) => {
 
       let isNew = false
       if (outcome.discovers) {
-        const result = addDiscovery(get().discoveries, id)
+        const current = get().discoveriesByIsland[island.id] ?? []
+        const result = addDiscovery(current, id)
         isNew = result.isNew
         if (isNew) {
-          set({
-            discoveries: result.discoveries,
-            lastDiscoveredId: id,
-          })
-          persistProgress(result.discoveries)
+          const discoveriesByIsland = {
+            ...get().discoveriesByIsland,
+            [island.id]: result.discoveries,
+          }
+          set({ discoveriesByIsland, lastDiscoveredId: id })
+          persistProgress(discoveriesByIsland)
         }
       }
 
       if (isNew) {
-        const object = getObjectById(id)
+        const object = getObjectById(island, id)
         get().pushToast({
           title: `Discovered — ${object?.name ?? id}`,
           description: outcome.message.slice(0, 140),
@@ -158,36 +222,64 @@ export const useGameStore = create<GameStore>()((set, get) => {
     },
 
     resetProgress: () => {
-      set({ discoveries: [], lastDiscoveredId: null })
-      persistProgress([])
+      const islandId = get().activeIslandId
+      const discoveriesByIsland = { ...get().discoveriesByIsland, [islandId]: [] }
+
+      set({ discoveriesByIsland, lastDiscoveredId: null })
+      useWorldEffects.getState().reset()
+      persistProgress(discoveriesByIsland)
     },
 
     hydrate: () => {
       const stored = normaliseProgress(
         readJson<unknown>(STORAGE_KEYS.progress, null),
-        KNOWN_OBJECT_IDS,
+        islandOfObjectId,
       )
-      set({ discoveries: stored.discoveries })
+      set({ discoveriesByIsland: stored.islands })
     },
   }
 })
 
-/** Load the resume session outside the store so it can be used by the camera rig. */
-export function readResumeSession(): StoredSession | null {
-  return loadSession()
+/** The islands the explorer has visited, in switcher order, with progress. */
+export interface IslandProgress {
+  islandId: string
+  discovered: number
+  total: number
 }
 
-export function writeResumeSession(session: StoredSession): boolean {
-  return writeJson(SESSION_KEY, session)
+const EMPTY_ENTRIES: DiscoveryEntry[] = []
+
+/** The island the explorer is standing on. */
+export function useActiveIsland(): IslandDefinition {
+  return useGameStore((state) => getIsland(state.activeIslandId))
+}
+
+/** The discoveries recorded on the island the explorer is standing on. */
+export function useActiveDiscoveries(): DiscoveryEntry[] {
+  return useGameStore((state) => state.discoveriesByIsland[state.activeIslandId] ?? EMPTY_ENTRIES)
+}
+
+/** Progress for the active island, as `n of m`. */
+export const selectProgress = (state: GameStore) => {
+  const island = getIsland(state.activeIslandId)
+  const entries = state.discoveriesByIsland[island.id] ?? EMPTY_ENTRIES
+  return summariseProgress(entries, islandDiscoverableCount(island))
+}
+
+export const selectDiscoveredSet = (state: GameStore): Set<string> =>
+  discoveredIds(state.discoveriesByIsland[state.activeIslandId] ?? EMPTY_ENTRIES)
+
+/** Load the resume session for one island, outside the store so the rig can use it. */
+export function readResumeSession(islandId: string): StoredSession | null {
+  return loadSessions().islands[islandId] ?? null
+}
+
+export function writeResumeSession(islandId: string, session: StoredSession): boolean {
+  const sessions = loadSessions()
+  sessions.islands[islandId] = session
+  return writeJson(SESSION_KEY, sessions)
 }
 
 export function clearResumeSession(): void {
   removeKey(SESSION_KEY)
 }
-
-/** Derived selectors. */
-export const selectProgress = (state: GameStore) =>
-  summariseProgress(state.discoveries, TOTAL_DISCOVERABLE)
-
-export const selectDiscoveredSet = (state: GameStore): Set<string> =>
-  discoveredIds(state.discoveries)

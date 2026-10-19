@@ -1,10 +1,14 @@
 # TinyWorld
 
+[![CI](https://github.com/zann06/TinyWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/zann06/TinyWorld/actions/workflows/ci.yml)
+
 **A little world, waiting to be explored.**
 
-TinyWorld is an open-source, browser-based 3D exploration game set on Greenhaven
-Island — a miniature, low-poly island you can walk around, explore, and take
-screenshots of. No account, no API key, no server, no build backend.
+TinyWorld is an open-source, browser-based 3D exploration game. Two islands —
+Greenhaven and Cairnmoor — each rendered in real time with WebGL 2. Walk the
+coast path, read the signpost, light the watchtower lantern, stoke the campfire,
+drink from the spring, climb to the arch, then take a photograph of the whole
+thing at dusk.
 
 ![TinyWorld — Greenhaven Island](docs/screenshots/island-wide.png)
 
@@ -12,11 +16,14 @@ screenshots of. No account, no API key, no server, no build backend.
 
 ## What it is
 
-A single, deliberately composed island rendered in real time with WebGL 2. Ten
-landmarks, each with its own story and its own real interaction. Walk the coast
-path, read the signpost, light the watchtower lantern, stoke the campfire,
-drink from the spring, climb to the arch, then take a photograph of the whole
-thing at dusk.
+Two deliberately composed islands rendered in real time with WebGL 2, eighteen
+landmarks between them, each with its own story and its own real interaction.
+Switch islands from the header at any time; progress is kept separately for each.
+
+| Island           | Landmarks | Character                                                                                     |
+| ---------------- | --------- | --------------------------------------------------------------------------------------------- |
+| Greenhaven       | 10        | Green, generous, sheltered. A lighthouse, a cottage, a tended garden and a coast path.          |
+| Cairnmoor Isle   | 8         | Smaller, higher, colder and rockier. A beached wreck, a stone cairn and a boathouse.           |
 
 ## Screenshots
 
@@ -30,11 +37,14 @@ thing at dusk.
 
 ## Features
 
-- **A real 3D island** — rolling terrain, an irregular coastline with a sheltered
+- **Two real 3D islands** — rolling terrain, an irregular coastline with a sheltered
   bay, beaches, a footpath, forests, rocks and flowers. Everything is generated
-  procedurally, so there are no missing assets and no download step.
-- **Ten landmarks**, each with a name, category, description and a distinct
-  interaction that changes the world or reveals a story.
+  procedurally, so there are no missing assets and no download step. Each island
+  has its own height field, palette, scatter seed and landmark set.
+- **Eighteen landmarks** across the two islands, each with a name, category,
+  description and a distinct interaction that changes the world or reveals a story.
+- **An island switcher** in the header. Travel is instant and per-island progress
+  is stored separately, so clearing one island never touches the other.
 - **Discovery progress** that persists locally. 4 of 10, 10 of 10 — progress is
   tracked, deduplicated and survives a refresh.
 - **Hybrid controls** — WASD or arrows to walk, drag to look, wheel to zoom,
@@ -63,7 +73,7 @@ thing at dusk.
 | ------------------------------------- | ---------------------------------- |
 | React 19 + TypeScript 5               | UI and component architecture      |
 | Vite                                  | Dev server and production build    |
-| Three.js + React Three Fiber 9 + drei | WebGL 2 rendering                  |
+| Three.js + React Three Fiber 9         | WebGL 2 rendering                  |
 | Tailwind CSS 4                        | Styling and responsive layout      |
 | Motion                                | UI animation                       |
 | Zustand                               | Shared application state           |
@@ -75,6 +85,27 @@ thing at dusk.
 Rendering is **WebGL 2**. WebGPU is deliberately not used: it would add
 compatibility risk without improving the experience for this scope.
 
+### Loading
+
+Nothing in `src/` outside `src/world/` imports Three.js or React Three Fiber,
+which is what makes the split possible. `src/app/App.tsx` loads `WorldCanvas`
+through `React.lazy`, so the build emits two chunks:
+
+| Chunk          | Gzipped  | Contains                                          |
+| -------------- | -------- | ------------------------------------------------- |
+| `index`        | ~133 kB  | App shell, stores, dialogs, directory, audio      |
+| `WorldCanvas`  | ~259 kB  | Three.js, React Three Fiber, terrain, scene, props |
+
+Until the second chunk resolves, the shell renders the island directory, the
+journal and the onboarding guide, which are fully usable without WebGL. The
+loading state during that window is identical to the one shown while the scene
+builds its geometry, so the handover does not flash. If the chunk fails to
+load, the existing error boundary catches it.
+
+Traveling between islands remounts the scene (keyed on the island id), which is
+what regenerates the terrain mesh and the instanced vegetation rather than
+leaving the previous island's geometry in place.
+
 ## Prerequisites
 
 - **Node.js 22.12 or newer** (22 or 24 LTS recommended)
@@ -84,7 +115,7 @@ compatibility risk without improving the experience for this scope.
 ## Installation
 
 ```bash
-git clone https://github.com/your-name/tinyworld.git
+git clone https://github.com/zann06/TinyWorld.git
 cd tinyworld
 npm ci
 ```
@@ -131,6 +162,9 @@ click to select · `E` to interact · `Esc` to close · `F` for photo mode ·
 action button to interact. Controls appear automatically on coarse-pointer
 devices.
 
+**Switching islands?** The header carries an island switcher showing each island's
+discovery count. Travel is instant and progress is stored per island.
+
 **No mouse, no keyboard?** The island directory lists every landmark as
 readable HTML with search, filtering and working actions. A skip link at the
 top of the page jumps straight to it.
@@ -145,7 +179,8 @@ src/
   world/       canvas, scene, terrain, objects, characters, camera, lighting
   game/        input, collision, interaction, discovery
   store/       Zustand stores and persistence
-  data/        world and object definitions (typed, render-free)
+  data/        island definitions, per-island landmarks, coastline maths
+    islands/   one landmark list per island
   lib/         storage, audio, webgl detection, renderer bridge
   types/       shared domain types
 tests/
@@ -163,11 +198,12 @@ structure, and [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) to contribute.
 
 TinyWorld is data-driven. Adding a landmark touches exactly two files.
 
-**1. Declare it** in `src/data/objects.ts`:
+**1. Declare it** in the island's landmark list — `src/data/islands/greenhaven-objects.ts`
+or `src/data/islands/cairnmoor-objects.ts`:
 
 ```ts
 {
-  id: 'lighthouse',                    // stable, never renamed
+  id: 'lighthouse',                    // stable, never renamed, unique across islands
   name: 'Northwind Lighthouse',
   category: 'landmark',
   summary: 'A striped tower that has guided sailors for a century.',
@@ -185,18 +221,25 @@ TinyWorld is data-driven. Adding a landmark touches exactly two files.
 base at `y = 0`, and register it in
 `src/world/objects/visual-registry.ts`.
 
-If it should block movement, add a radius to `OBSTACLES` in
-`src/data/world.ts`.
+If it should block movement, add a radius to that island's `obstacles` in
+`src/data/islands.ts`.
 
 That is all. The scene, the journal, the island directory, the interaction
-prompt, the progress counter and local persistence pick it up automatically. A
-unit test fails the build if a declared object has no registered visual.
+prompt, the progress counter and local persistence pick it up automatically.
+Three unit tests guard the edges: a declared object without a registered visual
+fails, a landmark placed below the waterline fails, and an object id claimed by
+two islands fails.
+
+To add a **whole new island**, add one entry to `ISLANDS` in
+`src/data/islands.ts` — coastline, height field, palette, footpath, obstacles,
+scatter and landmarks. Nothing outside that file branches on which island is
+active.
 
 ## Testing
 
 ```bash
-npm test          # 142 unit and component tests
-npm run test:e2e  # 33 end-to-end tests across desktop and mobile viewports
+npm test          # 239 unit and component tests
+npm run test:e2e  # 38 end-to-end tests across desktop and mobile viewports
 ```
 
 The end-to-end suite launches a real browser, verifies the scene actually
@@ -228,7 +271,7 @@ Build with the base path set to the repository sub-path:
 
 ```bash
 npm ci
-VITE_BASE_PATH=/tinyworld/ npm run build
+VITE_BASE_PATH=/TinyWorld/ npm run build
 ```
 
 Then publish `dist/` — either with the `gh-pages` branch flow, or with a
@@ -279,20 +322,24 @@ static file server.
 
 ## Known limitations
 
-- **One island.** Additional scenes are future work.
 - **Procedural art only.** Every model is built from primitives. TinyWorld ships
   no third-party models or textures (see [`ASSET_CREDITS.md`](ASSET_CREDITS.md)).
 - **No external asset loading**, so there are no loading spinners for models and
   no cross-origin asset issues when exporting screenshots.
-- **One bundle.** Three.js dominates the ~386 kB gzipped payload. Code splitting
-  the 3D scene from the UI shell would improve first paint and has not been done
-  yet.
+- **Three.js is the heaviest dependency.** The islands ship as their own lazy
+  chunk (~259 kB gzipped), so the interface - top bar, island directory,
+  journal, settings and the onboarding guide - paints from a ~133 kB gzipped
+  shell while the renderer is still streaming in. Splitting Three.js out of that
+  chunk would help further.
+- **Switching islands rebuilds the whole scene.** The terrain mesh and every
+  instanced prop are regenerated, which takes a beat under software rendering.
+  Terrain is not cached between visits.
 - **Audio starts after a user gesture**, as browser autoplay policy requires.
   Nothing is audible until the first click, key press or tap.
 - **Position is saved every four seconds.** Reloading within that window returns
   you to where you left off, which is not always the exact last step.
 - **Headless browser testing is slow.** CI renders WebGL with SwiftShader on the
-  CPU, so the end-to-end suite runs serially and takes around fifteen minutes.
+  CPU, so the end-to-end suite runs serially and takes around twenty minutes.
 
 ## Contributing
 

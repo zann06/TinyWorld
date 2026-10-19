@@ -154,6 +154,63 @@ test.describe('TinyWorld main journey', () => {
     await expect(page.getByTestId('photo-mode')).toBeHidden()
   })
 
+  test('travels to another island and renders a different scene', async ({ page }) => {
+    const errors: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text())
+    })
+    page.on('pageerror', (error) => errors.push(error.message))
+
+    await page.goto('/')
+    await dismissOnboarding(page)
+    await waitForScene(page)
+    await expect(page.getByTestId('island-name')).toHaveText('Greenhaven Island')
+
+    await page.getByTestId('island-switcher').click()
+    await page.getByRole('option', { name: /Cairnmoor Isle/ }).click()
+
+    await expect(page.getByTestId('island-name')).toHaveText('Cairnmoor Isle')
+    await waitForScene(page)
+    await expectCanvasNotBlank(page)
+
+    // The journal now lists the second island's landmarks, not Greenhaven's.
+    await openJournal(page)
+    await expect(page.getByText('The Gullwing Wreck')).toBeVisible()
+    await expect(page.getByText('Northwind Lighthouse')).toBeHidden()
+
+    expect(errors, `console errors: ${errors.join(' | ')}`).toHaveLength(0)
+  })
+
+  test("keeps each island's discoveries separate", async ({ page }) => {
+    await page.goto('/')
+    await dismissOnboarding(page)
+    await waitForScene(page)
+
+    // Discover one landmark on Greenhaven.
+    await openJournal(page)
+    const greenhavenJournal = page.getByRole('dialog', { name: 'Discovery journal' })
+    await greenhavenJournal.getByRole('button', { name: 'Climb the spiral stair' }).click()
+    await greenhavenJournal.getByRole('button', { name: 'Close Discovery journal' }).click()
+    expect(await readStoredProgress(page)).toContain('lighthouse')
+
+    // Travel to Cairnmoor: its progress starts empty.
+    await page.getByTestId('island-switcher').click()
+    await page.getByRole('option', { name: /Cairnmoor Isle/ }).click()
+    await waitForScene(page)
+
+    await openJournal(page)
+    await expect(page.getByText('0 of 8 landmarks discovered')).toBeVisible()
+    await page.getByRole('button', { name: 'Close Discovery journal' }).click()
+
+    // Coming back shows Greenhaven's progress intact.
+    await page.getByTestId('island-switcher').click()
+    await page.getByRole('option', { name: /Greenhaven Island/ }).click()
+    await waitForScene(page)
+
+    await openJournal(page)
+    await expect(page.getByText('1 of 10 landmarks discovered')).toBeVisible()
+  })
+
   test('keyboard-only navigation reaches every control', async ({ page }) => {
     await page.goto('/')
     await dismissOnboarding(page)
