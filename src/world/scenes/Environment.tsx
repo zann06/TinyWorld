@@ -7,6 +7,10 @@ import { PROP_COLORS, matteMaterial } from '@/world/objects/materials'
 import { scatterInCluster, seededRandom, type Terrain } from '@/world/terrain/terrain'
 import { useSettingsStore } from '@/store/settings-store'
 
+// Terrain geometry is cached between island visits, so its material must
+// outlive the mesh as well: the mesh is rendered with dispose={null}.
+const TERRAIN_MATERIAL = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })
+
 export interface EnvironmentProps {
   shadows: boolean
   island: IslandDefinition
@@ -155,14 +159,15 @@ export function Vegetation({ shadows, island, terrain }: EnvironmentProps) {
   )
 }
 
-/** The island surface. Rebuilt whenever the island changes. */
+/**
+ * The island surface. Geometry is built once per island and cached, so
+ * travelling back to an island reuses the same buffers.
+ */
 export function Terrain({ terrain }: EnvironmentProps) {
   const geometry = useMemo(() => terrain.buildGeometry(110), [terrain])
 
   return (
-    <mesh geometry={geometry} receiveShadow castShadow>
-      <meshLambertMaterial vertexColors flatShading />
-    </mesh>
+    <mesh geometry={geometry} material={TERRAIN_MATERIAL} receiveShadow castShadow dispose={null} />
   )
 }
 

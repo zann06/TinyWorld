@@ -2,7 +2,7 @@
   "name": "tinyworld",
   "private": false,
   "version": "0.1.0",
-  "description": "TinyWorld — an open-source, browser-based 3D miniature exploration game set on Greenhaven Island.",
+  "description": "TinyWorld — an open-source, browser-based 3D miniature exploration game with two procedurally generated islands.",
   "license": "MIT",
   "type": "module",
   "engines": {

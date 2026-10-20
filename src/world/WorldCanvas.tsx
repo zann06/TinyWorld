@@ -77,6 +77,14 @@ export function WorldCanvas() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!canvasElement) return
+    canvasElement.setAttribute(
+      'aria-label',
+      `${island.name}. Interactive 3D world. Use the island directory to browse landmarks with the keyboard.`,
+    )
+  }, [canvasElement, island.name])
+
   const handleSelect = useCallback(
     (id: string | null) => {
       if (id === null) {
@@ -119,10 +127,6 @@ export function WorldCanvas() {
             const canvas = gl.domElement
             canvas.setAttribute('data-testid', 'world-canvas')
             canvas.setAttribute('role', 'img')
-            canvas.setAttribute(
-              'aria-label',
-              'Greenhaven Island. Interactive 3D world. Use the island directory to browse landmarks with the keyboard.',
-            )
             setCanvasElement(canvas)
           }}
           onPointerMissed={() => handleSelect(null)}

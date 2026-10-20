@@ -64,9 +64,9 @@ Two rules keep that honest:
   "current island" state, so two terrains can coexist and every function stays
   pure and unit-testable.
 - **Scene components take the island as a prop.** `IslandScene` is rendered with
-  `key={island.id}`, so travelling remounts it and the terrain geometry and
-  instanced vegetation are regenerated rather than left over from the island you
-  just left.
+  `key={island.id}`, so travelling remounts it and the instanced vegetation is
+  regenerated rather than left over from the island you just left. The terrain
+  geometry is cached per island definition, so a return visit reuses its mesh.
 
 Progress and the saved player position are both keyed by island id. Stored
 progress moved to version 2 (`{ version: 2, islands: { … } }`); a version 1 save
@@ -172,10 +172,15 @@ between islands never loses either one's position.
   `src/world/objects/geometry.ts` and `materials.ts`. Materials whose colour
   varies per island pass a `scope` so the cache cannot hand island A's water to
   island B.
+- Built terrain geometry is cached per island definition in
+  `src/world/terrain/terrain.ts`. The mesh opts out of R3F's unmount disposal so
+  the cached buffers stay valid between visits.
 - Quality presets change device pixel ratio, shadow type, shadow map size and
   decoration density.
 - The 3D world is a lazy chunk (`React.lazy` in `App.tsx`), so the interface
-  paints from a ~133 kB gzipped shell while Three.js streams in separately.
+  paints from a ~133 kB gzipped shell. Three.js is split into its own cacheable
+  chunk (~187 kB gzipped) and neither it nor the scene chunk is preloaded with
+  the entry HTML.
 - Nothing calls `setState` from `useFrame`.
 
 ## Adding a landmark

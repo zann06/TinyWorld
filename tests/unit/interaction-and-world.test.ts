@@ -123,6 +123,14 @@ describe.each(ISLANDS.map((island) => [island.name, island] as const))(
       }
     })
 
+    it('reuses built geometry when the island is visited again', () => {
+      const first = createTerrain(island).buildGeometry(8)
+      const revisited = createTerrain(island).buildGeometry(8)
+
+      expect(revisited).toBe(first)
+      expect(createTerrain(island).buildGeometry(9)).not.toBe(first)
+    })
+
     it('produces varied ground: flat beaches and rolling highland', () => {
       const high = terrain.height(-2, -8)
       const beach = terrain.height(terrain.coastRadiusAt(-40, 10) * 0.99, 0)

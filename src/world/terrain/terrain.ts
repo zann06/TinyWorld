@@ -38,6 +38,16 @@ function detail(x: number, z: number): number {
   )
 }
 
+/**
+ * Built terrain geometry is expensive: tens of thousands of displaced vertices
+ * with baked vertex colours. Island definitions are stable module-level values,
+ * so cache the geometry against the definition itself. Returning to an island
+ * reuses the buffers instead of rebuilding them. The mesh consuming the
+ * geometry opts out of automatic disposal (see `Terrain` in Environment.tsx),
+ * which is what keeps the cached buffers valid after the scene unmounts.
+ */
+const GEOMETRY_CACHE = new WeakMap<IslandDefinition, Map<number, THREE.BufferGeometry>>()
+
 export interface Terrain {
   readonly islandId: string
   /** Coastline radius at a world-space XZ coordinate. */
@@ -135,6 +145,15 @@ export function createTerrain(island: IslandDefinition): Terrain {
     isOnLand,
 
     buildGeometry(segments = 110): THREE.BufferGeometry {
+      let cache = GEOMETRY_CACHE.get(island)
+      if (!cache) {
+        cache = new Map()
+        GEOMETRY_CACHE.set(island, cache)
+      }
+
+      const cached = cache.get(segments)
+      if (cached) return cached
+
       const extent = radius * 1.16
       const size = extent * 2
 
@@ -187,6 +206,7 @@ export function createTerrain(island: IslandDefinition): Terrain {
       geometry.computeVertexNormals()
       geometry.computeBoundingSphere()
 
+      cache.set(segments, geometry)
       return geometry
     },
 

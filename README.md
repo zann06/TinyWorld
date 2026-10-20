@@ -1,8 +1,11 @@
 # TinyWorld
 
 [![CI](https://github.com/zann06/TinyWorld/actions/workflows/ci.yml/badge.svg)](https://github.com/zann06/TinyWorld/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/zann06/TinyWorld/actions/workflows/deploy.yml/badge.svg)](https://github.com/zann06/TinyWorld/actions/workflows/deploy.yml)
 
 **A little world, waiting to be explored.**
+
+**Play online:** <https://zann06.github.io/TinyWorld/>
 
 TinyWorld is an open-source, browser-based 3D exploration game. Two islands —
 Greenhaven and Cairnmoor — each rendered in real time with WebGL 2. Walk the
@@ -101,22 +104,29 @@ compatibility risk without improving the experience for this scope.
 
 Nothing in `src/` outside `src/world/` imports Three.js or React Three Fiber,
 which is what makes the split possible. `src/app/App.tsx` loads `WorldCanvas`
-through `React.lazy`, so the build emits two chunks:
+through `React.lazy`, and the renderer stack is assigned to its own chunk:
 
-| Chunk          | Gzipped  | Contains                                          |
-| -------------- | -------- | ------------------------------------------------- |
-| `index`        | ~133 kB  | App shell, stores, dialogs, directory, audio      |
-| `WorldCanvas`  | ~259 kB  | Three.js, React Three Fiber, terrain, scene, props |
+| Chunk         | Gzipped | Contains                                               |
+| ------------- | ------- | ------------------------------------------------------ |
+| `index`       | ~133 kB | App shell, stores, dialogs, directory, audio           |
+| `WorldCanvas` | ~72 kB  | Island scene, terrain, objects, camera, lighting, R3F  |
+| `three`       | ~187 kB | Three.js                                               |
 
-Until the second chunk resolves, the shell renders the island directory, the
-journal and the onboarding guide, which are fully usable without WebGL. The
-loading state during that window is identical to the one shown while the scene
-builds its geometry, so the handover does not flash. If the chunk fails to
-load, the existing error boundary catches it.
+Keeping Three.js in a separate chunk means a deployment that only changes game
+code does not invalidate the largest cached asset. Both `WorldCanvas` and
+`three` are fetched after the shell has painted; neither is preloaded with the
+entry HTML.
 
-Traveling between islands remounts the scene (keyed on the island id), which is
-what regenerates the terrain mesh and the instanced vegetation rather than
-leaving the previous island's geometry in place.
+Until the renderer resolves, the shell renders the island directory, the journal
+and the onboarding guide, which are fully usable without WebGL. The loading
+state during that window is identical to the one shown while the scene builds
+its geometry, so the handover does not flash. If a chunk fails to load, the
+existing error boundary catches it.
+
+Traveling between islands remounts the scene (keyed on the island id), which
+regenerates the instanced vegetation and props. The terrain geometry itself is
+cached per island, so returning to an island reuses its displaced mesh instead
+of rebuilding it.
 
 ## Prerequisites
 
@@ -279,49 +289,21 @@ No environment variables are required. The base path is `/`.
 
 ### GitHub Pages
 
-Build with the base path set to the repository sub-path:
+The repository ships [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+On every push to `main` — and on manual dispatch — it installs from the
+lockfile, builds with `VITE_BASE_PATH=/<repository>/`, uploads `dist/` as a
+Pages artifact and deploys it.
+
+Pages must be enabled once under **Settings → Pages → Build and deployment →
+Source → GitHub Actions**. The site is then published at
+<https://zann06.github.io/TinyWorld/>.
+
+To reproduce the Pages build locally:
 
 ```bash
 npm ci
 VITE_BASE_PATH=/TinyWorld/ npm run build
-```
-
-Then publish `dist/` — either with the `gh-pages` branch flow, or with a
-GitHub Actions workflow:
-
-```yaml
-name: Deploy to GitHub Pages
-on:
-  push:
-    branches: [main]
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-concurrency:
-  group: pages
-  cancel-in-progress: true
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm ci
-      - run: npm run build
-        env:
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-      - id: deployment
-        uses: actions/deploy-pages@v4
+npm run preview
 ```
 
 After deploying, check the public URL directly. Asset paths and routing must be
@@ -338,14 +320,13 @@ static file server.
   no third-party models or textures (see [`ASSET_CREDITS.md`](ASSET_CREDITS.md)).
 - **No external asset loading**, so there are no loading spinners for models and
   no cross-origin asset issues when exporting screenshots.
-- **Three.js is the heaviest dependency.** The islands ship as their own lazy
-  chunk (~259 kB gzipped), so the interface - top bar, island directory,
-  journal, settings and the onboarding guide - paints from a ~133 kB gzipped
-  shell while the renderer is still streaming in. Splitting Three.js out of that
-  chunk would help further.
-- **Switching islands rebuilds the whole scene.** The terrain mesh and every
-  instanced prop are regenerated, which takes a beat under software rendering.
-  Terrain is not cached between visits.
+- **Three.js is the heaviest dependency.** It ships in its own lazy `three`
+  chunk (~187 kB gzipped), separate from the ~72 kB scene chunk and the ~133 kB
+  interface shell, so it is cached independently of game-code changes.
+- **Switching islands still rebuilds the instanced vegetation.** The terrain
+  mesh is cached per island, but trees, rocks, grass and flowers are scattered
+  and uploaded again on each visit, which can take a beat under software
+  rendering.
 - **Audio starts after a user gesture**, as browser autoplay policy requires.
   Nothing is audible until the first click, key press or tap.
 - **Position is saved every four seconds.** Reloading within that window returns

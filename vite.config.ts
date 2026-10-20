@@ -27,6 +27,20 @@ export default defineConfig({
     target: 'es2022',
     sourcemap: false,
     chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        // Three.js changes far less often than the game code, so keeping it in
+        // its own chunk lets browsers cache the renderer across deployments.
+        // Only the `three` package is grouped here: pulling React Three Fiber
+        // in as well would drag React into the chunk, make the shell import it
+        // and defeat the lazy load.
+        manualChunks(id) {
+          if (id.replace(/\\/g, '/').includes('/node_modules/three/')) {
+            return 'three'
+          }
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',
