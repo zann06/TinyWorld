@@ -102,12 +102,16 @@ export function findNearest<T extends { id: string; position: Vec2; radius: numb
 }
 
 /** Convert a horizontal input vector into a normalised world-space direction. */
-export function normaliseInput(input: Vec2, yaw: number): Vec2 {
+export function normaliseInput(input: Vec2, yaw: number, target: Vec2 = { x: 0, z: 0 }): Vec2 {
   let x = input.x
   let z = input.z
   const length = Math.hypot(x, z)
 
-  if (length < 1e-6) return { x: 0, z: 0 }
+  if (length < 1e-6) {
+    target.x = 0
+    target.z = 0
+    return target
+  }
   if (length > 1) {
     x /= length
     z /= length
@@ -127,7 +131,9 @@ export function normaliseInput(input: Vec2, yaw: number): Vec2 {
    */
   const sin = Math.sin(yaw)
   const cos = Math.cos(yaw)
-  return { x: -x * cos + z * sin, z: x * sin + z * cos }
+  target.x = -x * cos + z * sin
+  target.z = x * sin + z * cos
+  return target
 }
 
 /** Clamp a yaw angle into (-PI, PI] so it never accumulates unbounded values. */

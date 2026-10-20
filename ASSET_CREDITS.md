@@ -6,8 +6,8 @@ TinyWorld is MIT licensed. The MIT licence applies to **source code only**.
 
 **TinyWorld ships with no third-party 3D models, textures or image files.**
 
-Every object in Greenhaven Island is generated procedurally at runtime from
-Three.js primitive geometry:
+Every object on every island is generated procedurally at runtime from Three.js
+primitive geometry:
 
 | Asset group                                                                                       | Where it is built                                   | How                                                                                                                     |
 | ------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -16,7 +16,7 @@ Three.js primitive geometry:
 | Water, shallow shelf, foam line                                                                   | `src/world/scenes/Environment.tsx`                  | `PlaneGeometry` + `RingGeometry`                                                                                        |
 | Sky gradient                                                                                      | `src/world/scenes/Environment.tsx` (`SkyDome`)      | `ShaderMaterial` on a `SphereGeometry`                                                                                  |
 | Trees, rocks, grass, flowers                                                                      | `src/world/objects/geometry.ts` + `Environment.tsx` | Shared `CylinderGeometry` / `ConeGeometry` / `DodecahedronGeometry` / `IcosahedronGeometry`, drawn with `InstancedMesh` |
-| Landmarks (lighthouse, cottage, windmill, dock, signpost, watchtower, garden, camp, arch, spring) | `src/world/objects/ObjectVisual.tsx`                | Composed from primitives                                                                                                |
+| Landmarks (lighthouse, cottage, windmill, dock, signpost, watchtower, garden, camp, arch, spring, cairn, hearth, record wall, tide bell) | `src/world/objects/ObjectVisual.tsx`                | Composed from primitives                                                                                                |
 | Explorer avatar                                                                                   | `src/world/characters/PlayerAvatar.tsx`             | Composed from primitives                                                                                                |
 | Interface icon                                                                                    | `public/favicon.svg`                                | Hand-authored SVG                                                                                                       |
 | Screenshots in `docs/screenshots/`                                                                | `scripts/capture-screenshots.mjs`                   | Captured from this repository's own production build                                                                    |

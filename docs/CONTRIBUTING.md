@@ -25,12 +25,13 @@ Useful commands:
 | ------------------- | ---------------------------------------------------- |
 | `npm run dev`       | Vite dev server with hot reload                      |
 | `npm run build`     | Type-check and produce a production build in `dist/` |
+| `npm run budget`    | Check gzipped bundle sizes against the budget        |
 | `npm run preview`   | Serve the production build locally                   |
 | `npm run lint`      | ESLint (typescript-eslint strict type-checked)       |
 | `npm run typecheck` | `tsc -b --noEmit`                                    |
 | `npm test`          | Vitest unit and component tests                      |
 | `npm run test:e2e`  | Playwright end-to-end tests                          |
-| `npm run verify`    | format + lint + typecheck + unit tests + build        |
+| `npm run verify`    | format + lint + typecheck + unit tests + build + budget |
 | `npm run format`    | Prettier                                             |
 | `npm run screenshots` | Re-capture the README screenshots (needs `npm run preview` running) |
 
@@ -51,9 +52,10 @@ npm run verify
 npm run test:e2e
 ```
 
-CI runs exactly these. All three gates must be green: lint, type-check and
-tests. Do not disable a rule, weaken an assertion or skip a test to get there —
-if a rule is wrong, change the rule and explain why in the pull request.
+CI runs exactly these. Every gate must be green: format, lint, type-check, unit
+tests, production build and bundle budget, plus the end-to-end suite. Do not
+disable a rule, weaken an assertion or skip a test to get there — if a rule is
+wrong, change the rule and explain why in the pull request.
 
 ## House style
 
@@ -88,8 +90,18 @@ The short version (full detail in `docs/ARCHITECTURE.md`):
 ## Adding an island
 
 Add one entry to `ISLANDS` in `src/data/islands.ts` and give it a landmark list
-under `src/data/islands/`. The switcher, per-island storage, the directory and
-the scene all read from that definition, so nothing else needs to change.
+under `src/data/islands/`. Add any new visual keys to
+`src/world/objects/visual-registry.ts` and any new interaction effects to
+`src/game/interaction/interaction.ts`. The switcher, per-island storage, the
+directory, the journal and the scene all read from that definition.
+
+## Adding a Legacy step
+
+Append `{ islandId, objectId, title, hint }` to `LEGACY_QUEST.steps` in
+`src/data/quests.ts`. The order matters: progress is derived by walking the list
+and stopping at the first undiscovered landmark, so inserting a step earlier can
+invalidate an existing save's place in the trail. Add a unit test in
+`tests/unit/legacy-quest.test.ts` if the ordering rules change.
 
 ## Assets
 

@@ -213,6 +213,16 @@ describe('normaliseInput', () => {
     expect(Math.hypot(result.x, result.z)).toBeCloseTo(1, 6)
   })
 
+  it('writes into a reusable target vector', () => {
+    const target = { x: 99, z: 99 }
+    expect(normaliseInput({ x: 0, z: 1 }, Math.PI / 2, target)).toBe(target)
+    expect(target.x).toBeCloseTo(1, 6)
+    expect(target.z).toBeCloseTo(0, 6)
+
+    expect(normaliseInput({ x: 0, z: 0 }, 0, target)).toBe(target)
+    expect(target).toEqual({ x: 0, z: 0 })
+  })
+
   it('agrees with moveVectorToInput end to end for every arrow key', () => {
     for (const yaw of [0, 0.6, Math.PI / 2, -1.9]) {
       const { right, forward } = screenBasis(yaw)

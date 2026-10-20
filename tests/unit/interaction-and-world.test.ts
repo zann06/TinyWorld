@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { promptLabel, resolveInteraction } from '@/game/interaction/interaction'
 import { ISLANDS, getIsland } from '@/data/islands'
 import { findObjectsWithoutVisual } from '@/world/objects/visual-registry'
-import { createTerrain, scatterInCluster, seededRandom } from '@/world/terrain/terrain'
+import {
+  TERRAIN_SEGMENTS,
+  createTerrain,
+  scatterInCluster,
+  seededRandom,
+} from '@/world/terrain/terrain'
+import { getVegetationData } from '@/world/scenes/vegetation-data'
+import { ambientFor } from '@/world/ambient/ambient-data'
 
 const GREENHAVEN = getIsland('greenhaven')
 const greenhaven = createTerrain(GREENHAVEN)
@@ -123,6 +130,24 @@ describe.each(ISLANDS.map((island) => [island.name, island] as const))(
       }
     })
 
+    it('keeps ambient people on land and boats in open water', () => {
+      const ambient = ambientFor(island.id)
+      expect(ambient.npcs.length).toBeGreaterThan(0)
+      expect(ambient.boats.length).toBeGreaterThan(0)
+
+      for (const npc of ambient.npcs) {
+        expect(terrain.isOnLand(npc.anchor.x, npc.anchor.z), npc.id).toBe(true)
+      }
+
+      for (const boat of ambient.boats) {
+        const cos = Math.cos(boat.angle)
+        const sin = Math.sin(boat.angle)
+        const radius = terrain.coastRadiusAt(cos, sin) * boat.orbitFactor + boat.orbitOffset
+        expect(boat.orbitFactor).toBeGreaterThan(1)
+        expect(terrain.isOnLand(cos * radius, sin * radius), boat.id).toBe(false)
+      }
+    })
+
     it('reuses built geometry when the island is visited again', () => {
       const first = createTerrain(island).buildGeometry(8)
       const revisited = createTerrain(island).buildGeometry(8)
@@ -145,6 +170,21 @@ describe.each(ISLANDS.map((island) => [island.name, island] as const))(
     })
   },
 )
+
+describe('vegetation data', () => {
+  it('is cached per island and reused when the island is visited again', () => {
+    const first = getVegetationData(GREENHAVEN)
+    const revisited = getVegetationData(getIsland('greenhaven'))
+
+    expect(revisited).toBe(first)
+    expect(getVegetationData(getIsland('cairnmoor'))).not.toBe(first)
+  })
+
+  it('lowers terrain tessellation on weaker quality presets', () => {
+    expect(TERRAIN_SEGMENTS.low).toBeLessThan(TERRAIN_SEGMENTS.medium)
+    expect(TERRAIN_SEGMENTS.medium).toBeLessThan(TERRAIN_SEGMENTS.high)
+  })
+})
 
 describe('island terrain differs', () => {
   it('gives each island a genuinely different height field', () => {

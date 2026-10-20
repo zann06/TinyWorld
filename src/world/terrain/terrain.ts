@@ -1,6 +1,16 @@
 import * as THREE from 'three'
-import type { IslandDefinition, PathPoint, ScatterCluster } from '@/types'
+import type { IslandDefinition, PathPoint, QualityLevel, ScatterCluster } from '@/types'
 import { coastlineRadiusAt } from '@/data/world'
+
+/**
+ * Terrain tessellation per quality preset. Lowering the grid on weaker devices
+ * cuts the vertex count roughly in half without changing the silhouette.
+ */
+export const TERRAIN_SEGMENTS: Record<QualityLevel, number> = {
+  low: 64,
+  medium: 88,
+  high: 110,
+}
 
 /**
  * Terrain fields.

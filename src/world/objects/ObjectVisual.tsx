@@ -20,6 +20,94 @@ const roof = () => matteMaterial('roof', PROP_COLORS.roof)
 const cream = () => matteMaterial('cream', PROP_COLORS.cream)
 const trunk = () => matteMaterial('trunk', PROP_COLORS.trunk)
 
+/** Slow chimney smoke that fades out as it rises. */
+function ChimneySmoke({ position }: { position: [number, number, number] }) {
+  const puffs = useRef<(THREE.Mesh | null)[]>([])
+  const quality = useSettingsStore((s) => s.quality)
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
+
+  useFrame((state) => {
+    if (quality === 'low' || reducedMotion) return
+    const t = state.clock.elapsedTime
+    for (let index = 0; index < puffs.current.length; index += 1) {
+      const puff = puffs.current[index]
+      if (!puff) continue
+      const cycle = (t * 0.22 + index / puffs.current.length) % 1
+      puff.position.set(
+        Math.sin(cycle * 4 + index) * 0.24,
+        cycle * 2.4,
+        Math.cos(cycle * 3 + index) * 0.16,
+      )
+      puff.scale.setScalar(0.2 + cycle * 0.55)
+      const material = puff.material as THREE.MeshBasicMaterial
+      material.opacity = (1 - cycle) * 0.16
+    }
+  })
+
+  if (quality === 'low' || reducedMotion) return null
+
+  return (
+    <group position={position}>
+      {[0, 1, 2, 3].map((index) => (
+        <mesh
+          key={`smoke-${index}`}
+          ref={(mesh) => {
+            puffs.current[index] = mesh
+          }}
+        >
+          <sphereGeometry args={[1, 7, 6]} />
+          <meshBasicMaterial color="#e8e2d6" transparent opacity={0.12} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+/** A warm pane that only appears at dusk and night. */
+function WindowGlow({
+  position,
+  size = [0.62, 0.58],
+}: {
+  position: [number, number, number]
+  size?: [number, number]
+}) {
+  const timeOfDay = useSettingsStore((s) => s.timeOfDay)
+  if (timeOfDay === 'day') return null
+
+  return (
+    <mesh position={position}>
+      <boxGeometry args={[size[0], size[1], 0.03]} />
+      <meshBasicMaterial
+        color="#ffd58a"
+        transparent
+        opacity={timeOfDay === 'night' ? 0.65 : 0.4}
+        depthWrite={false}
+      />
+    </mesh>
+  )
+}
+
+/** A small hanging lamp for doorways and mooring posts. */
+function HangingLantern({ position }: { position: [number, number, number] }) {
+  const timeOfDay = useSettingsStore((s) => s.timeOfDay)
+  const lit = timeOfDay !== 'day'
+
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.38, 0]} material={trunk()}>
+        <cylinderGeometry args={[0.025, 0.025, 0.7, 5]} />
+      </mesh>
+      <mesh position={[0, 0.02, 0]} castShadow material={matteMaterial('lantern-iron', '#4c4a45')}>
+        <boxGeometry args={[0.24, 0.3, 0.24]} />
+      </mesh>
+      <mesh position={[0, 0.02, 0]}>
+        <boxGeometry args={[0.15, 0.2, 0.15]} />
+        <meshBasicMaterial color="#ffd58a" transparent opacity={lit ? 0.95 : 0.32} />
+      </mesh>
+    </group>
+  )
+}
+
 export function Lighthouse() {
   const lampRef = useRef<THREE.Mesh>(null)
   const beamRef = useRef<THREE.Mesh>(null)
@@ -49,10 +137,51 @@ export function Lighthouse() {
       <mesh position={[0, 2.1, 0]} castShadow material={roof()}>
         <cylinderGeometry args={[1.34, 1.4, 1.1, 14]} />
       </mesh>
-      {/* Gallery */}
+      {/* Gallery and its railing */}
       <mesh position={[0, 6.9, 0]} castShadow material={stone()}>
         <cylinderGeometry args={[1.35, 1.3, 0.3, 14]} />
       </mesh>
+      {Array.from({ length: 8 }, (_, index) => {
+        const angle = (index / 8) * Math.PI * 2
+        return (
+          <mesh
+            key={`lh-post-${index}`}
+            position={[Math.sin(angle) * 1.26, 7.3, Math.cos(angle) * 1.26]}
+            castShadow
+            material={matteMaterial('lh-rail', '#4c4a45')}
+          >
+            <cylinderGeometry args={[0.035, 0.045, 0.58, 5]} />
+          </mesh>
+        )
+      })}
+      <mesh
+        position={[0, 7.58, 0]}
+        rotation={[Math.PI / 2, 0, 0]}
+        material={matteMaterial('lh-rail', '#4c4a45')}
+      >
+        <torusGeometry args={[1.26, 0.035, 5, 20]} />
+      </mesh>
+      {/* Narrow tower windows */}
+      {[0.5, 1.7, 2.9].map((angle) => (
+        <mesh
+          key={`lh-window-low-${angle}`}
+          position={[Math.sin(angle) * 1.3, 3.35, Math.cos(angle) * 1.3]}
+          rotation={[0, angle, 0]}
+          material={matteMaterial('window-dark', '#27302f')}
+        >
+          <boxGeometry args={[0.16, 0.36, 0.08]} />
+        </mesh>
+      ))}
+      {[0.9, 2.35].map((angle) => (
+        <mesh
+          key={`lh-window-high-${angle}`}
+          position={[Math.sin(angle) * 1.16, 5.45, Math.cos(angle) * 1.16]}
+          rotation={[0, angle, 0]}
+          material={matteMaterial('window-dark', '#27302f')}
+        >
+          <boxGeometry args={[0.14, 0.3, 0.08]} />
+        </mesh>
+      ))}
       {/* Lantern room */}
       <mesh position={[0, 7.65, 0]} castShadow material={matteMaterial('lh-glass', '#cfe4e8')}>
         <cylinderGeometry args={[0.78, 0.82, 1.2, 12]} />
@@ -82,9 +211,12 @@ export function Lighthouse() {
       <mesh position={[0, 0.22, 0]} receiveShadow material={stone()}>
         <cylinderGeometry args={[2.1, 2.35, 0.45, 14]} />
       </mesh>
-      {/* Door */}
+      {/* Door and step */}
       <mesh position={[0, 0.95, 1.28]} material={matteMaterial('lh-door', '#6b4a2f')}>
         <boxGeometry args={[0.7, 1.5, 0.18]} />
+      </mesh>
+      <mesh position={[0, 0.08, 1.52]} receiveShadow material={stone()}>
+        <boxGeometry args={[1.1, 0.16, 0.6]} />
       </mesh>
     </group>
   )
@@ -93,6 +225,9 @@ export function Lighthouse() {
 export function Cottage() {
   return (
     <group>
+      <mesh position={[0, 0.16, 0]} receiveShadow material={stone()}>
+        <boxGeometry args={[3.62, 0.32, 3.02]} />
+      </mesh>
       <mesh position={[0, 1.3, 0]} castShadow receiveShadow material={wall()}>
         <boxGeometry args={[3.4, 2.6, 2.8]} />
       </mesh>
@@ -106,21 +241,66 @@ export function Cottage() {
       <mesh position={[1.1, 4.1, -0.7]} castShadow material={stone()}>
         <boxGeometry args={[0.62, 1.8, 0.62]} />
       </mesh>
-      {/* Door */}
+      {/* Door and frame */}
       <mesh position={[0, 0.95, 1.45]} material={matteMaterial('door', '#8a5a33')}>
         <boxGeometry args={[0.85, 1.7, 0.14]} />
       </mesh>
-      {/* Windows */}
-      <mesh position={[-1.05, 1.6, 1.44]} material={matteMaterial('window', '#bfe0e4')}>
-        <boxGeometry args={[0.75, 0.7, 0.1]} />
+      {[-0.5, 0.5].map((x) => (
+        <mesh key={`door-post-${x}`} position={[x, 0.95, 1.47]} material={wood()}>
+          <boxGeometry args={[0.12, 1.82, 0.18]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 1.86, 1.47]} material={wood()}>
+        <boxGeometry args={[1.12, 0.14, 0.18]} />
       </mesh>
-      <mesh position={[1.05, 1.6, 1.44]} material={matteMaterial('window', '#bfe0e4')}>
-        <boxGeometry args={[0.75, 0.7, 0.1]} />
+      <mesh position={[0, 0.08, 1.62]} receiveShadow material={stone()}>
+        <boxGeometry args={[1.2, 0.16, 0.55]} />
       </mesh>
-      {/* Window box */}
-      <mesh position={[0, 1.24, 1.62]} material={matteMaterial('planter', '#a8452f')}>
-        <boxGeometry args={[0.9, 0.24, 0.3]} />
-      </mesh>
+      {/* Windows, shutters and warm evening light */}
+      {[-1.05, 1.05].map((x) => (
+        <group key={`window-${x}`} position={[x, 1.6, 1.44]}>
+          <mesh material={matteMaterial('window', '#bfe0e4')}>
+            <boxGeometry args={[0.75, 0.7, 0.1]} />
+          </mesh>
+          <mesh position={[0, 0, 0.06]} material={matteMaterial('window-frame', '#6b4a2f')}>
+            <boxGeometry args={[0.09, 0.74, 0.05]} />
+          </mesh>
+          <mesh position={[0, 0, 0.06]} material={matteMaterial('window-frame', '#6b4a2f')}>
+            <boxGeometry args={[0.79, 0.08, 0.05]} />
+          </mesh>
+          <WindowGlow position={[0, 0, 0.09]} />
+        </group>
+      ))}
+      {[-1.53, -0.57, 0.57, 1.53].map((x) => (
+        <mesh
+          key={`shutter-${x}`}
+          position={[x, 1.6, 1.46]}
+          material={matteMaterial('shutter', '#4f6b4a')}
+        >
+          <boxGeometry args={[0.16, 0.74, 0.08]} />
+        </mesh>
+      ))}
+      {/* Window boxes with a little colour */}
+      {[-1.05, 1.05].map((x) => (
+        <group key={`planter-${x}`} position={[x, 1.2, 1.62]}>
+          <mesh material={matteMaterial('planter', '#a8452f')}>
+            <boxGeometry args={[0.9, 0.24, 0.3]} />
+          </mesh>
+          {[-0.26, 0, 0.26].map((offset, index) => (
+            <mesh
+              key={`flower-${offset}`}
+              position={[offset, 0.18, 0.02]}
+              material={matteMaterial(
+                index === 1 ? 'flower-sun' : 'flower-rose',
+                index === 1 ? '#e9b949' : '#c85a4a',
+              )}
+            >
+              <sphereGeometry args={[0.09, 6, 5]} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+      <ChimneySmoke position={[1.1, 5.0, -0.7]} />
       {/* Log pile */}
       {[0, 1, 2].map((row) =>
         [0, 1, 2].map((column) => (
@@ -142,9 +322,10 @@ export function Cottage() {
 export function Windmill() {
   const sailsRef = useRef<THREE.Group>(null)
   const quality = useSettingsStore((s) => s.quality)
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
 
   useFrame((_, delta) => {
-    if (!sailsRef.current) return
+    if (!sailsRef.current || reducedMotion) return
     sailsRef.current.rotation.z -= delta * 0.42
   })
 
@@ -159,7 +340,52 @@ export function Windmill() {
       <mesh position={[0, 0.9, 1.5]} material={matteMaterial('door', '#8a5a33')}>
         <boxGeometry args={[0.75, 1.5, 0.14]} />
       </mesh>
-
+      <mesh position={[0, 0.08, 1.7]} receiveShadow material={stone()}>
+        <boxGeometry args={[1.1, 0.16, 0.6]} />
+      </mesh>
+      {/* Gallery deck and railing */}
+      <mesh position={[0, 3.35, 0]} castShadow material={wood()}>
+        <cylinderGeometry args={[1.55, 1.6, 0.18, 12]} />
+      </mesh>
+      {Array.from({ length: 8 }, (_, index) => {
+        const angle = (index / 8) * Math.PI * 2
+        return (
+          <mesh
+            key={`wm-post-${index}`}
+            position={[Math.cos(angle) * 1.47, 3.72, Math.sin(angle) * 1.47]}
+            castShadow
+            material={trunk()}
+          >
+            <cylinderGeometry args={[0.04, 0.05, 0.62, 5]} />
+          </mesh>
+        )
+      })}
+      <mesh
+        position={[0, 4.02, 0]}
+        rotation={[Math.PI / 2, 0, 0]}
+        material={matteMaterial('wm-rail', '#8a5a33')}
+      >
+        <torusGeometry args={[1.47, 0.04, 5, 20]} />
+      </mesh>
+      {/* Sacks of flour by the door */}
+      {(
+        [
+          [-1.45, 0.38, 1.1, 0.5],
+          [-1.1, 0.32, 1.42, 0.4],
+          [1.35, 0.34, 1.25, 0.45],
+        ] as const
+      ).map(([x, y, z, scale], index) => (
+        <mesh
+          key={`sack-${index}`}
+          position={[x, y, z]}
+          scale={[scale, scale * 1.25, scale * 0.9]}
+          rotation={[0, index * 0.7, 0]}
+          castShadow
+          material={matteMaterial('sack', '#d9b97f')}
+        >
+          <icosahedronGeometry args={[0.72, 1]} />
+        </mesh>
+      ))}
       <group ref={sailsRef} position={[0, 4.6, 1.35]} rotation={[0, 0, 0]}>
         {[0, 1, 2, 3].map((blade) => (
           <group key={blade} rotation={[0, 0, (blade * Math.PI) / 2]}>
@@ -222,10 +448,60 @@ export function Dock() {
       >
         <boxGeometry args={[0.85, 0.75, 0.85]} />
       </mesh>
-      {/* Mooring post with rope */}
+      {/* Mooring post and rails */}
       <mesh position={[1.5, 0.85, 0.4]} castShadow material={trunk()}>
         <cylinderGeometry args={[0.16, 0.18, 1.7, 7]} />
       </mesh>
+      {[0, 1, 2].map((index) => (
+        <mesh
+          key={`rope-${index}`}
+          position={[0, 0.98, 1.55 + index * 1.9]}
+          rotation={[Math.PI / 2, 0, 0]}
+          material={matteMaterial('rope', '#c2a874')}
+        >
+          <cylinderGeometry args={[0.028, 0.028, 1.9, 5]} />
+        </mesh>
+      ))}
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`dock-rail-${side}`}
+          position={[side * 1.35, 1.05, 1.55]}
+          rotation={[Math.PI / 2, 0, 0]}
+          material={matteMaterial('rope', '#c2a874')}
+        >
+          <cylinderGeometry args={[0.03, 0.03, 5.7, 5]} />
+        </mesh>
+      ))}
+      {/* Coiled rope and a spare barrel */}
+      <mesh
+        position={[-0.55, 0.63, 1.1]}
+        rotation={[Math.PI / 2, 0, 0]}
+        material={matteMaterial('rope', '#c2a874')}
+      >
+        <torusGeometry args={[0.36, 0.07, 6, 14]} />
+      </mesh>
+      <mesh position={[1.15, 0.88, 3.5]} castShadow material={matteMaterial('barrel', '#7a4b32')}>
+        <cylinderGeometry args={[0.36, 0.34, 0.78, 10]} />
+      </mesh>
+      <mesh position={[1.15, 0.88, 3.5]} material={matteMaterial('barrel-band', '#4c4a45')}>
+        <cylinderGeometry args={[0.37, 0.37, 0.08, 10]} />
+      </mesh>
+      {/* Oars leaning by the crates */}
+      {[0, 1].map((index) => (
+        <group
+          key={`oar-${index}`}
+          position={[0.85 + index * 0.22, 1.05, 5.45]}
+          rotation={[0.14, 0, -0.3]}
+        >
+          <mesh castShadow material={trunk()}>
+            <cylinderGeometry args={[0.05, 0.06, 2.2, 6]} />
+          </mesh>
+          <mesh position={[0, -0.95, 0]} material={wood()}>
+            <boxGeometry args={[0.05, 0.55, 0.3]} />
+          </mesh>
+        </group>
+      ))}
+      <HangingLantern position={[1.5, 1.7, 0.4]} />
     </group>
   )
 }
@@ -314,6 +590,16 @@ export function Watchtower() {
           decay={2}
         />
       ) : null}
+      {/* Watch banner */}
+      <mesh position={[1.05, 7.65, -0.3]} castShadow material={trunk()}>
+        <cylinderGeometry args={[0.045, 0.06, 2.1, 6]} />
+      </mesh>
+      <mesh position={[1.38, 8.35, -0.3]} material={matteMaterial('watch-banner', '#a8452f')}>
+        <boxGeometry args={[0.62, 0.5, 0.035]} />
+      </mesh>
+      <mesh position={[1.38, 8.58, -0.28]} material={matteMaterial('watch-banner-trim', '#d9c08a')}>
+        <boxGeometry args={[0.66, 0.07, 0.045]} />
+      </mesh>
       {/* Wooden ladder */}
       {[0, 1, 2, 3, 4].map((index) => (
         <mesh key={`rung-${index}`} position={[0, 0.6 + index * 1.1, 1.72]} material={trunk()}>
@@ -787,12 +1073,261 @@ export function Cairn() {
   )
 }
 
+/**
+ * Hearthfall landmarks.
+ *
+ * The visual language is the first settlement rather than the later one: earth,
+ * fire-blackened stone, carved records and a bell that was never meant to be
+ * decorative.
+ */
+
+/** The First Hearth — a scorched stone ring with a tripod and a rekindled fire. */
+export function Hearth() {
+  const fireStoked = useWorldEffects((s) => s.fireStoked)
+  const flameRef = useRef<THREE.Group>(null)
+  const quality = useSettingsStore((s) => s.quality)
+
+  useFrame((state) => {
+    if (!flameRef.current) return
+    const t = state.clock.elapsedTime
+    const flicker = 0.9 + Math.sin(t * 9.5) * 0.08 + Math.sin(t * 15.7) * 0.04
+    flameRef.current.scale.setScalar(fireStoked ? flicker * 1.2 : flicker * 0.6)
+    flameRef.current.visible = fireStoked
+  })
+
+  const hearthStones = Array.from({ length: 9 }, (_, index) => {
+    const angle = (index / 9) * Math.PI * 2
+    return { angle, x: Math.cos(angle) * 1.25, z: Math.sin(angle) * 1.25 }
+  })
+
+  return (
+    <group>
+      {/* Fire-blackened ring */}
+      {hearthStones.map((stone, index) => (
+        <mesh
+          key={`hearth-stone-${index}`}
+          position={[stone.x, 0.22, stone.z]}
+          rotation={[0.1, stone.angle, index % 2 === 0 ? 0.08 : -0.05]}
+          castShadow
+          receiveShadow
+          material={matteMaterial(index % 2 === 0 ? 'hearth-stone-a' : 'hearth-stone-b', '#6f6a60')}
+        >
+          <dodecahedronGeometry args={[0.34, 0]} />
+        </mesh>
+      ))}
+
+      {/* Ash bed */}
+      <mesh position={[0, 0.08, 0]} receiveShadow material={matteMaterial('hearth-ash', '#8a8175')}>
+        <cylinderGeometry args={[1.02, 1.08, 0.16, 14]} />
+      </mesh>
+
+      {/* Tripod over the fire */}
+      {[0, 1, 2].map((index) => {
+        const angle = (index / 3) * Math.PI * 2
+        return (
+          <mesh
+            key={`hearth-pole-${index}`}
+            position={[Math.cos(angle) * 0.8, 1.05, Math.sin(angle) * 0.8]}
+            rotation={[Math.sin(angle) * 0.35, 0, -Math.cos(angle) * 0.35]}
+            castShadow
+            material={trunk()}
+          >
+            <cylinderGeometry args={[0.055, 0.075, 2.2, 6]} />
+          </mesh>
+        )
+      })}
+      <mesh position={[0, 2.12, 0]} castShadow material={matteMaterial('hearth-iron', '#4c4a45')}>
+        <cylinderGeometry args={[0.08, 0.08, 0.9, 8]} />
+      </mesh>
+      <mesh position={[0, 1.6, 0]} castShadow material={matteMaterial('hearth-pot', '#5e5a52')}>
+        <sphereGeometry args={[0.34, 10, 8]} />
+      </mesh>
+
+      {/* Banked embers, always present */}
+      <mesh position={[0, 0.22, 0]}>
+        <sphereGeometry args={[0.24, 8, 6]} />
+        <meshBasicMaterial color="#a8562f" transparent opacity={fireStoked ? 0.55 : 0.25} />
+      </mesh>
+
+      <group ref={flameRef} position={[0, 0.44, 0]} visible={false}>
+        <mesh>
+          <coneGeometry args={[0.4, 1.0, 6]} />
+          <meshBasicMaterial color="#f2a03f" transparent opacity={0.9} />
+        </mesh>
+        <mesh position={[0, -0.12, 0]}>
+          <coneGeometry args={[0.22, 0.56, 6]} />
+          <meshBasicMaterial color="#ffd77a" transparent opacity={0.95} />
+        </mesh>
+      </group>
+
+      {fireStoked && quality !== 'low' ? (
+        <pointLight position={[0, 1.1, 0]} color="#f2a03f" intensity={8} distance={15} decay={2} />
+      ) : null}
+
+      {/* Log seat and a water jar */}
+      <mesh position={[-2.2, 0.28, 0.4]} rotation={[0, 0.25, 0]} castShadow material={trunk()}>
+        <cylinderGeometry args={[0.26, 0.26, 2.2, 8]} />
+      </mesh>
+      <mesh
+        position={[2.1, 0.36, -0.3]}
+        castShadow
+        material={matteMaterial('hearth-jar', '#8a5a33')}
+      >
+        <sphereGeometry args={[0.34, 10, 8]} />
+      </mesh>
+    </group>
+  )
+}
+
+/** The Record Wall — low stone courses covered in carved names and tallies. */
+export function RecordWall() {
+  const slabs = [-2.7, -1.8, -0.9, 0, 0.9, 1.8, 2.7]
+
+  return (
+    <group>
+      {slabs.map((x, index) => (
+        <group key={`record-slab-${index}`} position={[x, 0, index % 2 === 0 ? 0.12 : -0.1]}>
+          <mesh
+            position={[0, 0.75, 0]}
+            rotation={[0, index * 0.04 - 0.12, index % 2 === 0 ? 0.02 : -0.03]}
+            castShadow
+            receiveShadow
+            material={matteMaterial(
+              index % 2 === 0 ? 'record-stone-a' : 'record-stone-b',
+              index % 2 === 0 ? '#9a978d' : '#858278',
+            )}
+          >
+            <boxGeometry args={[1.05, 1.35 + (index % 3) * 0.18, 0.55]} />
+          </mesh>
+
+          {/* Carved lines. Short bars read as names at this scale. */}
+          {[0, 1, 2, 3].map((line) => (
+            <mesh
+              key={`record-line-${index}-${line}`}
+              position={[0, 0.5 + line * 0.24, 0.29]}
+              material={matteMaterial('record-ink', '#4d4a43')}
+            >
+              <boxGeometry args={[0.58 - line * 0.07, 0.045, 0.02]} />
+            </mesh>
+          ))}
+          {/* One deeper mark per slab, as if a name was cut twice */}
+          <mesh
+            position={[-0.28, 1.18, 0.29]}
+            rotation={[0, 0, 0.12]}
+            material={matteMaterial('record-ink', '#4d4a43')}
+          >
+            <boxGeometry args={[0.16, 0.09, 0.02]} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Ground course and moss */}
+      <mesh
+        position={[0, 0.12, 0]}
+        receiveShadow
+        material={matteMaterial('record-base', '#777469')}
+      >
+        <boxGeometry args={[6.7, 0.24, 0.95]} />
+      </mesh>
+      <mesh
+        position={[-2.1, 1.43, 0.12]}
+        castShadow
+        material={matteMaterial('record-moss', '#74804d')}
+      >
+        <icosahedronGeometry args={[0.45, 0]} />
+      </mesh>
+      <mesh
+        position={[2.3, 1.3, -0.16]}
+        castShadow
+        material={matteMaterial('record-moss', '#74804d')}
+      >
+        <icosahedronGeometry args={[0.32, 0]} />
+      </mesh>
+    </group>
+  )
+}
+
+/** The Tide Bell — a bronze bell on a driftwood frame above the shore path. */
+export function TideBell() {
+  const bellRef = useRef<THREE.Group>(null)
+  const quality = useSettingsStore((s) => s.quality)
+  const bellRung = useWorldEffects((s) => s.bellRung)
+
+  useFrame((state) => {
+    if (!bellRef.current || quality === 'low') return
+    const t = state.clock.elapsedTime
+    const swing = bellRung ? Math.sin(t * 3.4) * 0.16 : Math.sin(t * 0.9) * 0.035
+    bellRef.current.rotation.z = swing
+  })
+
+  return (
+    <group>
+      {/* Driftwood frame */}
+      {[-1.25, 1.25].map((x, index) => (
+        <mesh
+          key={`bell-post-${index}`}
+          position={[x, 1.55, 0]}
+          rotation={[0, 0, index === 0 ? 0.04 : -0.04]}
+          castShadow
+          material={matteMaterial('bell-frame', '#6b5740')}
+        >
+          <cylinderGeometry args={[0.16, 0.21, 3.1, 7]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 3.02, 0]} rotation={[0, 0, Math.PI / 2]} castShadow material={trunk()}>
+        <cylinderGeometry args={[0.15, 0.17, 3.0, 7]} />
+      </mesh>
+
+      {/* Bell and clapper */}
+      <group ref={bellRef} position={[0, 2.85, 0]}>
+        <mesh
+          position={[0, -0.62, 0]}
+          castShadow
+          material={matteMaterial('bell-bronze', '#8a7442')}
+        >
+          <cylinderGeometry args={[0.5, 0.78, 1.15, 14]} />
+        </mesh>
+        <mesh position={[0, -1.2, 0]} castShadow material={matteMaterial('bell-rim', '#74613a')}>
+          <cylinderGeometry args={[0.74, 0.8, 0.16, 14]} />
+        </mesh>
+        <mesh position={[0, 0.02, 0]} castShadow material={matteMaterial('bell-crown', '#74613a')}>
+          <torusGeometry args={[0.24, 0.07, 6, 12]} />
+        </mesh>
+        <mesh position={[0, -0.9, 0]} material={matteMaterial('bell-clapper', '#3f3b34')}>
+          <sphereGeometry args={[0.13, 8, 6]} />
+        </mesh>
+      </group>
+
+      {/* Bell rope, tied off on the right post */}
+      <mesh position={[0, 1.85, 0.04]} material={matteMaterial('bell-rope', '#cbbd9c')}>
+        <cylinderGeometry args={[0.025, 0.025, 1.9, 5]} />
+      </mesh>
+
+      {/* Stone footing */}
+      {[0, 1].map((index) => (
+        <mesh
+          key={`bell-foot-${index}`}
+          position={[index === 0 ? -1.25 : 1.25, 0.12, 0]}
+          receiveShadow
+          material={stone()}
+        >
+          <cylinderGeometry args={[0.42, 0.48, 0.24, 8]} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 /** Gullrock Boathouse — tarred plank hut, door propped open, slipway full of weeds. */
 export function Boathouse() {
   const planks = [0, 1, 2, 3]
 
   return (
     <group>
+      {/* Stone footing */}
+      <mesh position={[0, 0.14, 0]} receiveShadow material={stone()}>
+        <boxGeometry args={[4.6, 0.28, 3.6]} />
+      </mesh>
       {/* Walls */}
       <mesh
         position={[0, 1.4, 0]}
@@ -841,6 +1376,58 @@ export function Boathouse() {
       >
         <boxGeometry args={[1.25, 2.2, 0.1]} />
       </mesh>
+      {/* Door frame, sign and lantern */}
+      {[-0.15, 1.25].map((x) => (
+        <mesh key={`boathouse-post-${x}`} position={[x, 1.2, 1.82]} castShadow material={trunk()}>
+          <boxGeometry args={[0.14, 2.5, 0.16]} />
+        </mesh>
+      ))}
+      <mesh position={[0.55, 2.45, 1.82]} castShadow material={trunk()}>
+        <boxGeometry args={[1.7, 0.16, 0.18]} />
+      </mesh>
+      <mesh position={[0.55, 2.72, 1.8]} material={matteMaterial('boathouse-sign', '#d9b97f')}>
+        <boxGeometry args={[1.35, 0.36, 0.07]} />
+      </mesh>
+      {[0, 1].map((index) => (
+        <mesh key={`boathouse-sign-line-${index}`} position={[0.55, 2.79 - index * 0.14, 1.85]}>
+          <boxGeometry args={[0.95 - index * 0.25, 0.045, 0.02]} />
+          <meshBasicMaterial color="#5a3d27" />
+        </mesh>
+      ))}
+      <HangingLantern position={[-0.4, 2.15, 1.92]} />
+      {/* Small window with shutters */}
+      <mesh position={[-1.45, 1.8, 1.72]} material={matteMaterial('window', '#bfe0e4')}>
+        <boxGeometry args={[0.7, 0.65, 0.08]} />
+      </mesh>
+      <mesh position={[-1.45, 1.8, 1.77]} material={matteMaterial('boathouse-seam', '#4a382b')}>
+        <boxGeometry args={[0.08, 0.68, 0.05]} />
+      </mesh>
+      <WindowGlow position={[-1.45, 1.8, 1.81]} size={[0.62, 0.57]} />
+      {/* Coiled rope, barrels and leaning oars */}
+      <mesh
+        position={[1.85, 1.35, 1.82]}
+        rotation={[0, Math.PI / 2, 0]}
+        material={matteMaterial('rope', '#c2a874')}
+      >
+        <torusGeometry args={[0.32, 0.06, 6, 14]} />
+      </mesh>
+      <mesh position={[-1.75, 0.78, 2.2]} castShadow material={matteMaterial('barrel', '#7a4b32')}>
+        <cylinderGeometry args={[0.34, 0.32, 0.7, 10]} />
+      </mesh>
+      {[0, 1].map((index) => (
+        <group
+          key={`boathouse-oar-${index}`}
+          position={[-1.95 + index * 0.18, 1.05, 2.65]}
+          rotation={[0.2, 0, -0.34]}
+        >
+          <mesh castShadow material={trunk()}>
+            <cylinderGeometry args={[0.045, 0.055, 2.1, 6]} />
+          </mesh>
+          <mesh position={[0, -0.9, 0]} material={wood()}>
+            <boxGeometry args={[0.05, 0.5, 0.28]} />
+          </mesh>
+        </group>
+      ))}
       {/* Slipway running down to the water */}
       <mesh
         position={[-0.4, 0.12, 3.6]}

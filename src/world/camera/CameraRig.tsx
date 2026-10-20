@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import type { IslandDefinition } from '@/types'
 import { createTerrain } from '@/world/terrain/terrain'
 import { findNearest, normaliseInput, resolvePosition, wrapAngle } from '@/game/collision/collision'
-import { moveVectorToInput, readMoveVector } from '@/game/input/input'
+import { EMPTY_MOVE_VECTOR, moveVectorToInput, readMoveVector } from '@/game/input/input'
 import {
   MAX_CAMERA_DISTANCE,
   MAX_PITCH,
@@ -17,6 +17,9 @@ import { readResumeSession, useGameStore, writeResumeSession } from '@/store/gam
 
 const PLAYER_RADIUS = 1.15
 const MOVE_SPEED = 11
+const MOVE_ACCELERATION = 12
+const MOVE_BRAKING = 16
+const MOVE_STOP_EPSILON = 0.02
 const INTERACTION_REACH = 5.5
 const PROXIMITY_INTERVAL = 0.18
 const SESSION_SAVE_INTERVAL = 4
@@ -53,10 +56,28 @@ export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigPro
   const candidates = useMemo(() => proximityCandidates(island), [island])
   const obstacles = island.obstacles
 
+  // Reused every frame so walking and camera follow do not allocate.
+  const scratch = useMemo(
+    () => ({
+      move: { ...EMPTY_MOVE_VECTOR },
+      input: { x: 0, z: 0 },
+      rawInput: { x: 0, z: 0 },
+      direction: { x: 0, z: 0 },
+      zero: { x: 0, y: 0 },
+      nextPosition: { x: 0, z: 0 },
+      focus: new THREE.Vector3(),
+      target: new THREE.Vector3(),
+      desired: new THREE.Vector3(),
+    }),
+    [],
+  )
+
   const initialised = useRef<string | null>(null)
   const proximityLastRun = useRef(-Infinity)
   const lastSaveTime = useRef(0)
   const focusTimer = useRef(0)
+  const smoothFocus = useRef(new THREE.Vector3())
+  const focusInitialised = useRef(false)
 
   // Restore this island's previous session on first mount, clamped to walkable
   // ground. `initialised` is keyed by island, so travelling rebuilds the rig.
@@ -77,11 +98,15 @@ export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigPro
     movementState.player.x = resolved.position.x
     movementState.player.z = resolved.position.z
     movementState.yaw = session ? session.yaw : island.defaultYaw
-    // A stale drag or held key must not carry into the new island.
+    movementState.facing = session ? session.yaw : island.defaultYaw
+    // A stale drag, held key or velocity must not carry into the new island.
     movementState.pendingYawDelta = 0
     movementState.pendingPitchDelta = 0
     movementState.pendingZoomDelta = 0
+    movementState.velocity.x = 0
+    movementState.velocity.z = 0
     movementState.speed = 0
+    focusInitialised.current = false
   }, [islandId, island.spawn, island.defaultYaw, obstacles, terrain])
 
   // Start a focus drift whenever the selection changes.
@@ -114,8 +139,10 @@ export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigPro
     movementState.pendingZoomDelta = 0
 
     // ---- movement --------------------------------------------------------
-    const keyboard = inputEnabled ? moveVectorToInput(readMoveVector(movementState.pressed)) : null
-    const touch = inputEnabled ? movementState.touchAxis : { x: 0, y: 0 }
+    const keyboard = inputEnabled
+      ? moveVectorToInput(readMoveVector(movementState.pressed, scratch.move), scratch.input)
+      : null
+    const touch = inputEnabled ? movementState.touchAxis : scratch.zero
 
     let inputX = touch.x + (keyboard?.x ?? 0)
     let inputZ = touch.y + (keyboard?.z ?? 0)
@@ -127,27 +154,56 @@ export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigPro
     }
 
     const speed = MOVE_SPEED * magnitude
-    const direction = normaliseInput({ x: inputX, z: inputZ }, movementState.yaw)
+    scratch.rawInput.x = inputX
+    scratch.rawInput.z = inputZ
+    const direction = normaliseInput(scratch.rawInput, movementState.yaw, scratch.direction)
 
-    movementState.speed = THREE.MathUtils.damp(movementState.speed, speed, 8, dt)
+    // Accelerate and brake the actual velocity instead of snapping to full
+    // speed. Direction changes stay responsive but no longer look like a
+    // teleport, and releasing the keys glides to a stop.
+    const responsiveness = magnitude > 0.01 ? MOVE_ACCELERATION : MOVE_BRAKING
+    const targetVelocityX = direction.x * speed
+    const targetVelocityZ = direction.z * speed
+    let velocityX = THREE.MathUtils.damp(
+      movementState.velocity.x,
+      targetVelocityX,
+      responsiveness,
+      dt,
+    )
+    let velocityZ = THREE.MathUtils.damp(
+      movementState.velocity.z,
+      targetVelocityZ,
+      responsiveness,
+      dt,
+    )
 
-    if (speed > 0) {
+    if (Math.hypot(velocityX, velocityZ) < MOVE_STOP_EPSILON && magnitude < 0.01) {
+      velocityX = 0
+      velocityZ = 0
+    }
+
+    movementState.velocity.x = velocityX
+    movementState.velocity.z = velocityZ
+    const planarSpeed = Math.hypot(velocityX, velocityZ)
+    movementState.speed = planarSpeed
+
+    if (planarSpeed > 0) {
+      scratch.nextPosition.x = movementState.player.x + velocityX * dt
+      scratch.nextPosition.z = movementState.player.z + velocityZ * dt
       const resolved = resolvePosition(
-        {
-          x: movementState.player.x + direction.x * speed * dt,
-          z: movementState.player.z + direction.z * speed * dt,
-        },
+        scratch.nextPosition,
         PLAYER_RADIUS,
         obstacles,
         terrain.coastRadiusAt,
       )
       movementState.player.x = resolved.position.x
       movementState.player.z = resolved.position.z
+      movementState.facing = Math.atan2(velocityX, velocityZ)
     }
 
     // ---- camera ----------------------------------------------------------
     const playerGround = terrain.height(movementState.player.x, movementState.player.z)
-    const focus = new THREE.Vector3(
+    const focus = scratch.focus.set(
       movementState.player.x,
       playerGround + 1.6,
       movementState.player.z,
@@ -158,33 +214,43 @@ export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigPro
       focusTimer.current -= dt
       const object = island.objects.find((entry) => entry.id === selectedId)
       if (object) {
-        const target = new THREE.Vector3(
+        const target = scratch.target.set(
           object.position.x,
           terrain.height(object.position.x, object.position.z) + 1.5,
           object.position.z,
         )
-        focus.lerp(target, 0.45)
+        focus.lerp(target, 1 - Math.exp(-5 * dt))
       }
     }
+
+    // Damping the focus point as well as the camera position removes the
+    // small vertical pops caused by terrain samples and prop focus targets.
+    if (!focusInitialised.current) {
+      smoothFocus.current.copy(focus)
+      focusInitialised.current = true
+    } else {
+      smoothFocus.current.lerp(focus, 1 - Math.exp(-(reducedMotion ? 30 : 12) * dt))
+    }
+    const smooth = smoothFocus.current
 
     const horizontal = Math.cos(movementState.pitch) * movementState.distance
     const vertical = Math.sin(movementState.pitch) * movementState.distance
 
-    const desired = new THREE.Vector3(
-      focus.x - Math.sin(movementState.yaw) * horizontal,
-      focus.y + vertical,
-      focus.z - Math.cos(movementState.yaw) * horizontal,
+    const desired = scratch.desired.set(
+      smooth.x - Math.sin(movementState.yaw) * horizontal,
+      smooth.y + vertical,
+      smooth.z - Math.cos(movementState.yaw) * horizontal,
     )
 
     // Keep the camera above the terrain, never below the island surface.
     const groundAtCamera = terrain.height(desired.x, desired.z) + 1.8
     if (desired.y < groundAtCamera) desired.y = groundAtCamera
 
-    const damping = reducedMotion ? 100 : 7
+    const damping = reducedMotion ? 100 : 8
     camera.position.x = THREE.MathUtils.damp(camera.position.x, desired.x, damping, dt)
     camera.position.y = THREE.MathUtils.damp(camera.position.y, desired.y, damping, dt)
     camera.position.z = THREE.MathUtils.damp(camera.position.z, desired.z, damping, dt)
-    camera.lookAt(focus.x, focus.y + 0.6, focus.z)
+    camera.lookAt(smooth.x, smooth.y + 0.6, smooth.z)
 
     // ---- proximity prompt ------------------------------------------------
     if (now - proximityLastRun.current >= PROXIMITY_INTERVAL) {

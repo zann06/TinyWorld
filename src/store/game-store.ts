@@ -6,6 +6,8 @@ import { DEFAULT_ISLAND_ID, getIsland, islandOfObjectId, isKnownIsland } from '@
 import { normaliseProgress, type StoredProgress } from '@/store/progress-schema'
 import { addDiscovery, discoveredIds, summariseProgress } from '@/game/discovery/discovery'
 import { resolveInteraction } from '@/game/interaction/interaction'
+import { legacyProgress } from '@/game/quest/legacy'
+import { LEGACY_QUEST } from '@/data/quests'
 import { useWorldEffects } from '@/world/objects/world-effects'
 
 /** One-shot notification raised by an interaction, consumed by the toast host. */
@@ -180,18 +182,21 @@ export const useGameStore = create<GameStore>()((set, get) => {
         useWorldEffects.getState().apply(outcome.effect)
       }
 
+      const legacyBefore = legacyProgress(get().discoveriesByIsland)
       let isNew = false
+      let discoveriesAfter = get().discoveriesByIsland
+
       if (outcome.discovers) {
-        const current = get().discoveriesByIsland[island.id] ?? []
+        const current = discoveriesAfter[island.id] ?? []
         const result = addDiscovery(current, id)
         isNew = result.isNew
         if (isNew) {
-          const discoveriesByIsland = {
-            ...get().discoveriesByIsland,
+          discoveriesAfter = {
+            ...discoveriesAfter,
             [island.id]: result.discoveries,
           }
-          set({ discoveriesByIsland, lastDiscoveredId: id })
-          persistProgress(discoveriesByIsland)
+          set({ discoveriesByIsland: discoveriesAfter, lastDiscoveredId: id })
+          persistProgress(discoveriesAfter)
         }
       }
 
@@ -208,6 +213,29 @@ export const useGameStore = create<GameStore>()((set, get) => {
           description: outcome.message.slice(0, 140),
           variant: 'info',
         })
+      }
+
+      // Legacy progress is derived from discoveries, but the player still needs
+      // to be told when a step is actually reached.
+      const legacyAfter = legacyProgress(discoveriesAfter)
+      if (legacyAfter.stepIndex > legacyBefore.stepIndex) {
+        // A gap can close several already-discovered steps at once. Announce the
+        // step the player just completed, not the last one in the chain.
+        const step = LEGACY_QUEST.steps[legacyBefore.stepIndex]
+        if (legacyAfter.complete) {
+          get().pushToast({
+            title: 'Legacy complete',
+            description:
+              LEGACY_QUEST.steps.at(-1)?.completion ?? 'The first settlers’ trail is finished.',
+            variant: 'success',
+          })
+        } else if (step) {
+          get().pushToast({
+            title: `Legacy — ${step.title}`,
+            description: step.completion,
+            variant: 'success',
+          })
+        }
       }
     },
 

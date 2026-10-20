@@ -4,8 +4,13 @@
 
 The island switcher sits in the top-left of the header, next to the island name.
 It lists every island with its discovery count; choose one to travel. Travel is
-instant, each island remembers where you left off, and clearing progress in
-settings only affects the island you are standing on.
+instant, visited islands stay loaded, each island remembers where you left off,
+and clearing progress in settings only affects the island you are standing on.
+
+The journal also shows the **Legacy** trail: five discoveries spread across
+Greenhaven, Cairnmoor and Hearthfall, in order. The panel names the current step,
+counts completed steps, and offers a travel button when the next landmark is on
+another island.
 
 ## Desktop
 

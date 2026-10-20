@@ -6,9 +6,12 @@ import {
   Cottage,
   Dock,
   Garden,
+  Hearth,
   Lighthouse,
+  RecordWall,
   Signpost,
   Spring,
+  TideBell,
   Watchtower,
   Windmill,
   Wreck,
@@ -35,6 +38,9 @@ export const OBJECT_VISUALS = {
   wreck: Wreck,
   cairn: Cairn,
   boathouse: Boathouse,
+  hearth: Hearth,
+  'record-wall': RecordWall,
+  'tide-bell': TideBell,
 } as const satisfies Record<string, () => React.JSX.Element>
 
 export type VisualKey = keyof typeof OBJECT_VISUALS

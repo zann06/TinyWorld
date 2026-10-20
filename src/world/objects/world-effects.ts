@@ -10,6 +10,7 @@ interface WorldEffectsStore {
   fireStoked: boolean
   springTouched: boolean
   sailsTurned: number
+  bellRung: boolean
   /** Applies an interaction effect. Returns true when something changed. */
   apply: (effect: NonNullable<InteractionOutcome['effect']>) => boolean
   /** Clears every effect. Called when changing island or resetting progress. */
@@ -21,6 +22,7 @@ const INITIAL = {
   fireStoked: false,
   springTouched: false,
   sailsTurned: 0,
+  bellRung: false,
 } as const
 
 export const useWorldEffects = create<WorldEffectsStore>()((set, get) => ({
@@ -45,6 +47,11 @@ export const useWorldEffects = create<WorldEffectsStore>()((set, get) => ({
       }
       case 'turn-sails': {
         set((state) => ({ sailsTurned: state.sailsTurned + 1 }))
+        return true
+      }
+      case 'ring-bell': {
+        if (get().bellRung) return false
+        set({ bellRung: true })
         return true
       }
       default:

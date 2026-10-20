@@ -34,23 +34,32 @@ export const EMPTY_MOVE_VECTOR: MoveVector = {
   right: false,
 }
 
-/** Build a movement vector from the currently pressed `KeyboardEvent.code` values. */
-export function readMoveVector(codes: Iterable<string>): MoveVector {
-  const active = new Set(codes)
-  const vector: MoveVector = { ...EMPTY_MOVE_VECTOR }
+const MOVE_DIRECTIONS = Object.keys(MOVE_KEYS) as MoveDirection[]
 
-  for (const direction of Object.keys(MOVE_KEYS) as MoveDirection[]) {
-    vector[direction] = MOVE_KEYS[direction].some((code) => active.has(code))
+/**
+ * Build a movement vector from the currently pressed `KeyboardEvent.code` values.
+ *
+ * Pass a reusable `target` from the frame loop to avoid allocating one object
+ * per frame.
+ */
+export function readMoveVector(
+  codes: Iterable<string>,
+  target: MoveVector = { ...EMPTY_MOVE_VECTOR },
+): MoveVector {
+  const active = codes instanceof Set ? codes : new Set(codes)
+
+  for (const direction of MOVE_DIRECTIONS) {
+    target[direction] = MOVE_KEYS[direction].some((code) => active.has(code))
   }
 
-  return vector
+  return target
 }
 
 /**
  * Convert a movement vector into a normalised screen-space direction.
  * Screen space is +Z forward and +X right, before the camera yaw is applied.
  */
-export function moveVectorToInput(vector: MoveVector): Vec2 {
+export function moveVectorToInput(vector: MoveVector, target: Vec2 = { x: 0, z: 0 }): Vec2 {
   let x = 0
   let z = 0
 
@@ -60,9 +69,15 @@ export function moveVectorToInput(vector: MoveVector): Vec2 {
   if (vector.left) x -= 1
 
   const length = Math.hypot(x, z)
-  if (length === 0) return { x: 0, z: 0 }
+  if (length === 0) {
+    target.x = 0
+    target.z = 0
+    return target
+  }
 
-  return { x: x / length, z: z / length }
+  target.x = x / length
+  target.z = z / length
+  return target
 }
 
 export type GameAction = 'interact' | 'escape' | 'toggleJournal' | 'toggleSettings' | 'photoMode'

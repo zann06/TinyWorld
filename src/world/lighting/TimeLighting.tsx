@@ -2,50 +2,25 @@ import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useSettingsStore } from '@/store/settings-store'
-import { LIGHTING_PRESETS, TIME_PRESET_ORDER, type TimeLighting } from './lighting-presets'
+import { LIGHTING_PRESETS, TIME_PRESET_ORDER } from './lighting-presets'
 
-const COLOUR_KEYS = [
-  'sunColor',
-  'ambientColor',
-  'hemiSky',
-  'hemiGround',
-  'skyTop',
-  'skyBottom',
-  'fogColor',
-] as const satisfies readonly (keyof TimeLighting)[]
+const scratchFrom = new THREE.Color()
+const scratchTo = new THREE.Color()
 
-type ColourKey = (typeof COLOUR_KEYS)[number]
-type LightingOverrides = Partial<Record<ColourKey, string>> & {
-  sunIntensity: number
-  ambientIntensity: number
-  sunPosition: [number, number, number]
-}
-
-function lerpLighting(from: TimeLighting, to: TimeLighting, t: number): TimeLighting {
-  const out: LightingOverrides = {
-    sunIntensity: THREE.MathUtils.lerp(from.sunIntensity, to.sunIntensity, t),
-    ambientIntensity: THREE.MathUtils.lerp(from.ambientIntensity, to.ambientIntensity, t),
-    sunPosition: [
-      THREE.MathUtils.lerp(from.sunPosition[0], to.sunPosition[0], t),
-      THREE.MathUtils.lerp(from.sunPosition[1], to.sunPosition[1], t),
-      THREE.MathUtils.lerp(from.sunPosition[2], to.sunPosition[2], t),
-    ],
-  }
-
-  for (const key of COLOUR_KEYS) {
-    const a = new THREE.Color(from[key])
-    const b = new THREE.Color(to[key])
-    out[key] = `#${a.lerp(b, t).getHexString()}`
-  }
-
-  return out as TimeLighting
+/** Mix two hex colours into an existing THREE.Color without allocating. */
+function mixInto(target: THREE.Color, from: string, to: string, t: number): void {
+  scratchFrom.set(from)
+  scratchTo.set(to)
+  target.copy(scratchFrom).lerp(scratchTo, t)
 }
 
 /**
  * Time-of-day lighting.
  *
  * Transitions are eased inside the frame loop rather than through React state,
- * so changing the time of day never triggers a render storm.
+ * so changing the time of day never triggers a render storm. The last applied
+ * progress is remembered, which keeps a static scene allocation-free: the
+ * lighting is only recomputed while the preset is actually changing.
  */
 export function TimeBasedLighting({ shadows }: { shadows: boolean }) {
   const timeOfDay = useSettingsStore((s) => s.timeOfDay)
@@ -59,9 +34,11 @@ export function TimeBasedLighting({ shadows }: { shadows: boolean }) {
 
   // Progress 0..2 across day -> dusk -> night.
   const progress = useRef(TIME_PRESET_ORDER.indexOf(timeOfDay))
+  const lastApplied = useRef(-1)
 
   useEffect(() => {
     progress.current = TIME_PRESET_ORDER.indexOf(timeOfDay)
+    lastApplied.current = -1
   }, [timeOfDay])
 
   useFrame((state, delta) => {
@@ -70,39 +47,45 @@ export function TimeBasedLighting({ shadows }: { shadows: boolean }) {
     }
 
     const wrapped = ((progress.current % 3) + 3) % 3
+    if (Math.abs(wrapped - lastApplied.current) < 0.0001) return
+    lastApplied.current = wrapped
+
     const fromIndex = Math.floor(wrapped)
     const toIndex = (fromIndex + 1) % 3
     const t = wrapped - fromIndex
 
     const from = LIGHTING_PRESETS[TIME_PRESET_ORDER[fromIndex] ?? 'day']
     const to = LIGHTING_PRESETS[TIME_PRESET_ORDER[toIndex] ?? 'dusk']
-    const lighting = lerpLighting(from, to, t)
 
     const sun = sunRef.current
     if (sun) {
-      sun.position.set(...lighting.sunPosition)
-      sun.color.set(lighting.sunColor)
-      sun.intensity = lighting.sunIntensity
+      sun.position.set(
+        THREE.MathUtils.lerp(from.sunPosition[0], to.sunPosition[0], t),
+        THREE.MathUtils.lerp(from.sunPosition[1], to.sunPosition[1], t),
+        THREE.MathUtils.lerp(from.sunPosition[2], to.sunPosition[2], t),
+      )
+      mixInto(sun.color, from.sunColor, to.sunColor, t)
+      sun.intensity = THREE.MathUtils.lerp(from.sunIntensity, to.sunIntensity, t)
     }
 
     const ambient = ambientRef.current
     if (ambient) {
-      ambient.color.set(lighting.ambientColor)
-      ambient.intensity = lighting.ambientIntensity
+      mixInto(ambient.color, from.ambientColor, to.ambientColor, t)
+      ambient.intensity = THREE.MathUtils.lerp(from.ambientIntensity, to.ambientIntensity, t)
     }
 
     const hemi = hemiRef.current
     if (hemi) {
-      hemi.color.set(lighting.hemiSky)
-      hemi.groundColor.set(lighting.hemiGround)
+      mixInto(hemi.color, from.hemiSky, to.hemiSky, t)
+      mixInto(hemi.groundColor, from.hemiGround, to.hemiGround, t)
     }
 
     const scene = state.scene
     if (scene.background instanceof THREE.Color) {
-      scene.background.set(lighting.fogColor)
+      mixInto(scene.background, from.fogColor, to.fogColor, t)
     }
     if (scene.fog instanceof THREE.Fog) {
-      scene.fog.color.set(lighting.fogColor)
+      mixInto(scene.fog.color, from.fogColor, to.fogColor, t)
     }
   })
 

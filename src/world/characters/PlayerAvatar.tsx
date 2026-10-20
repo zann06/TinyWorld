@@ -1,8 +1,9 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import * as THREE from 'three'
+import type * as THREE from 'three'
 import type { IslandDefinition } from '@/types'
 import { movementState } from '@/game/input/useKeyboardControls'
+import { wrapAngle } from '@/game/collision/collision'
 import { createTerrain } from '@/world/terrain/terrain'
 import { matteMaterial } from '@/world/objects/materials'
 
@@ -26,7 +27,7 @@ export function PlayerAvatar({ island }: PlayerAvatarProps) {
 
   const terrain = useMemo(() => createTerrain(island), [island])
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const group = groupRef.current
     if (!group) return
 
@@ -34,9 +35,11 @@ export function PlayerAvatar({ island }: PlayerAvatarProps) {
     const ground = terrain.height(x, z)
 
     group.position.set(x, ground, z)
-    // Face the direction of travel; when idle, face away from the camera.
-    const targetYaw = movementState.speed > 0.4 ? movementState.yaw : movementState.yaw + Math.PI
-    group.rotation.y = THREE.MathUtils.damp(group.rotation.y, targetYaw, 8, 1 / 60)
+    // Face the direction the player is actually travelling. Keep that heading
+    // while idle instead of snapping back to the camera.
+    const targetYaw = movementState.facing
+    const turn = 1 - Math.exp(-12 * Math.min(delta, 1 / 20))
+    group.rotation.y = wrapAngle(group.rotation.y + wrapAngle(targetYaw - group.rotation.y) * turn)
 
     const t = state.clock.elapsedTime
     const moving = Math.min(1, movementState.speed / 8)

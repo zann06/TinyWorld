@@ -1,14 +1,15 @@
 import type { IslandDefinition } from '@/types'
 import { GREENHAVEN_OBJECTS } from '@/data/islands/greenhaven-objects'
 import { CAIRNMOOR_OBJECTS } from '@/data/islands/cairnmoor-objects'
+import { HEARTHFALL_OBJECTS } from '@/data/islands/hearthfall-objects'
 
 /**
  * Every island in TinyWorld.
  *
  * Each entry is entirely self-contained: coastline, height field, palette,
  * footpath, obstacles, decorative scatter and the landmarks themselves. Nothing
- * outside this file branches on which island is active, so adding a third island
- * means adding a third entry and registering its visuals.
+ * outside this file branches on which island is active, so adding another island
+ * means adding an entry and registering its visuals.
  *
  * Numbers for Greenhaven were tuned by eye against the rendered result and are
  * reproduced here exactly; do not "tidy" them.
@@ -226,8 +227,108 @@ export const CAIRNMOOR: IslandDefinition = {
   objects: CAIRNMOOR_OBJECTS,
 }
 
+/**
+ * Hearthfall Isle — the third island and the end of the Legacy trail.
+ *
+ * Warmer and lower than Cairnmoor, built around a first hearth rather than a
+ * harbour. The landmarks are the marks the first settlers left: a hearth, a
+ * record wall, a cairn and a bell.
+ */
+export const HEARTHFALL: IslandDefinition = {
+  id: 'hearthfall',
+  name: 'Hearthfall Isle',
+  tagline: 'The first fire on the islands is still waiting.',
+  blurb: 'A first hearth, a record wall and a tide bell left by the people who came before.',
+
+  radius: 42,
+  terrainHeight: 10.5,
+  spawn: { x: -29, z: 24 },
+  defaultYaw: 1.05,
+  seed: 1_902_611,
+
+  coast: {
+    harmonics: [
+      { amplitude: 0.12, frequency: 2, phase: 2.2 },
+      { amplitude: 0.1, frequency: 3, phase: -0.9 },
+      { amplitude: 0.06, frequency: 6, phase: 1.4 },
+      { amplitude: 0.035, frequency: 9, phase: -2.1 },
+    ],
+    bay: { angle: 2.35, width: 0.38, depth: 0.11 },
+  },
+
+  shape: {
+    hills: 3.8,
+    detail: 1.2,
+    spine: { amplitude: 4.8, offsetZ: 3, spread: 9 },
+    knoll: { amplitude: 3.8, centreX: -14, centreZ: -12, spreadX: 10, spreadZ: 9 },
+    shoreDepth: 2.2,
+  },
+
+  palette: {
+    grassHigh: '#b6a45f',
+    grassLow: '#7d7d45',
+    meadow: '#d4c28a',
+    sand: '#e5d3a8',
+    shore: '#c9b489',
+    rock: '#8f8377',
+    water: '#4f8b8a',
+    waterShallow: '#86bdb0',
+  },
+
+  path: [
+    { x: -30, z: 24 },
+    { x: -20, z: 10 },
+    { x: -12, z: 4 },
+    { x: -2, z: 0 },
+    { x: 6, z: -2 },
+    { x: 14, z: 4 },
+    { x: 16, z: 10 },
+    { x: 10, z: 18 },
+    { x: 10, z: 24 },
+  ],
+
+  obstacles: [
+    { id: 'first-hearth', x: 4, z: -2, radius: 3.2 },
+    { id: 'record-wall', x: 16, z: 10, radius: 3.4 },
+    { id: 'tide-bell', x: -24, z: 18, radius: 2.8 },
+    { id: 'founders-cairn', x: -14, z: -16, radius: 2.8 },
+    { id: 'driftwood-gate', x: 10, z: 22, radius: 3 },
+    { id: 'warm-spring', x: -20, z: 6, radius: 3 },
+    { id: 'keeper-camp', x: 22, z: -12, radius: 3 },
+    { id: 'survey-marker', x: -2, z: 14, radius: 2.2 },
+  ],
+
+  scatter: {
+    // Open meadow with windbreak trees at the edges, not a forest.
+    tree: [
+      { x: -32, z: 2, count: 10, radius: 9 },
+      { x: -24, z: -26, count: 8, radius: 8 },
+      { x: 30, z: 16, count: 9, radius: 9 },
+      { x: 30, z: -20, count: 8, radius: 8 },
+      { x: 0, z: 30, count: 7, radius: 8 },
+    ],
+    rock: [
+      { x: -30, z: 22, count: 7, radius: 5 },
+      { x: 18, z: -26, count: 6, radius: 6 },
+      { x: 34, z: 0, count: 6, radius: 5 },
+      { x: -8, z: -28, count: 6, radius: 6 },
+      { x: 6, z: 30, count: 5, radius: 5 },
+    ],
+    flower: [
+      { x: -12, z: 10, count: 16, radius: 5 },
+      { x: 8, z: 8, count: 14, radius: 5 },
+      { x: 22, z: 2, count: 12, radius: 5 },
+      { x: -22, z: -6, count: 13, radius: 5 },
+      { x: 2, z: -14, count: 12, radius: 5 },
+      { x: -4, z: 22, count: 12, radius: 5 },
+    ],
+  },
+
+  objects: HEARTHFALL_OBJECTS,
+}
+
 /** Every island, in switcher order. Greenhaven is always first. */
-export const ISLANDS: readonly IslandDefinition[] = [GREENHAVEN, CAIRNMOOR]
+export const ISLANDS: readonly IslandDefinition[] = [GREENHAVEN, CAIRNMOOR, HEARTHFALL]
 
 export const DEFAULT_ISLAND_ID = GREENHAVEN.id
 

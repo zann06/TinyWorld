@@ -12,6 +12,7 @@ import { useSettingsStore } from '@/store/settings-store'
 import { useGameStore } from '@/store/game-store'
 import { useUiStore } from '@/store/ui-store'
 import { useDragLook, useKeyboardControls, movementState } from '@/game/input/useKeyboardControls'
+import { scheduleIslandPreparation } from '@/world/prepare-island'
 import type { GameAction } from '@/game/input/input'
 
 const DPR_BY_QUALITY = { low: 1, medium: 1.25, high: 1.75 } as const
@@ -34,6 +35,16 @@ export function WorldCanvas() {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [canvasElement, setCanvasElement] = useState<HTMLCanvasElement | null>(null)
+  // Islands warmed ahead of time. The active island is always mounted even when
+  // the idle warm-up has not reached it yet, so travel never shows an empty
+  // scene. Once built an island stays mounted, so trips are visibility swaps.
+  const [preparedIslands, setPreparedIslands] = useState<ReadonlySet<string>>(() => new Set())
+  const mountedIslands = useMemo(() => {
+    if (preparedIslands.has(activeIslandId)) return preparedIslands
+    const next = new Set(preparedIslands)
+    next.add(activeIslandId)
+    return next
+  }, [preparedIslands, activeIslandId])
 
   const handleAction = useCallback((action: GameAction) => {
     const state = useGameStore.getState()
@@ -85,6 +96,21 @@ export function WorldCanvas() {
     )
   }, [canvasElement, island.name])
 
+  // Warm and mount the other islands during idle. Their scene graphs then stay
+  // resident, so a later trip is a visibility swap instead of a rebuild.
+  useEffect(
+    () =>
+      scheduleIslandPreparation(activeIslandId, quality, (islandId) => {
+        setPreparedIslands((current) => {
+          if (current.has(islandId)) return current
+          const next = new Set(current)
+          next.add(islandId)
+          return next
+        })
+      }),
+    [activeIslandId, quality],
+  )
+
   const handleSelect = useCallback(
     (id: string | null) => {
       if (id === null) {
@@ -134,13 +160,13 @@ export function WorldCanvas() {
           <Suspense fallback={null}>
             <RendererBridge />
             {/*
-              Keying on the island id remounts the whole scene when the explorer
-              travels, which is what rebuilds the terrain geometry and the
-              instanced props instead of leaving them from the previous island.
+              Deliberately not keyed on the island id: visited environments stay
+              mounted, so travel only changes what is visible and which island
+              owns the camera, player and interaction layer.
             */}
             <IslandScene
-              key={island.id}
               island={island}
+              mountedIslands={mountedIslands}
               shadows={quality !== 'low'}
               inputEnabled={inputEnabled}
               onSelect={handleSelect}

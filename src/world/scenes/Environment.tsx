@@ -4,7 +4,8 @@ import type { IslandDefinition } from '@/types'
 import { InstancedProp } from '@/world/objects/InstancedProp'
 import { Geometries } from '@/world/objects/geometry'
 import { PROP_COLORS, matteMaterial } from '@/world/objects/materials'
-import { scatterInCluster, seededRandom, type Terrain } from '@/world/terrain/terrain'
+import { TERRAIN_SEGMENTS, type Terrain } from '@/world/terrain/terrain'
+import { getVegetationData } from '@/world/scenes/vegetation-data'
 import { useSettingsStore } from '@/store/settings-store'
 
 // Terrain geometry is cached between island visits, so its material must
@@ -21,80 +22,8 @@ export interface EnvironmentProps {
 export function Vegetation({ shadows, island, terrain }: EnvironmentProps) {
   const quality = useSettingsStore((s) => s.quality)
 
-  const data = useMemo(() => {
-    const rand = seededRandom(island.seed)
-    const blocked = island.obstacles.map((o) => ({ x: o.x, z: o.z, radius: o.radius }))
-
-    // Trees avoid cliffs; rocks happily perch on them.
-    const treePoints = island.scatter.tree.flatMap((cluster) =>
-      scatterInCluster(terrain, cluster, cluster.count, rand, blocked, {
-        jitter: 0.95,
-        maxSlope: 0.85,
-        minHeight: 0.2,
-      }),
-    )
-
-    const rockPoints = island.scatter.rock.flatMap((cluster) =>
-      scatterInCluster(terrain, cluster, cluster.count, rand, blocked, {
-        jitter: 0.9,
-        maxSlope: 2.4,
-        minHeight: -0.6,
-      }),
-    )
-
-    const grassPoints = island.scatter.flower.flatMap((patch) =>
-      scatterInCluster(terrain, patch, Math.round(patch.count * 1.6), rand, blocked, {
-        jitter: 0.95,
-        maxSlope: 1.4,
-        minHeight: 0.1,
-      }),
-    )
-
-    const flowerPoints = island.scatter.flower.flatMap((patch) =>
-      scatterInCluster(terrain, patch, patch.count, rand, blocked, {
-        jitter: 0.85,
-        maxSlope: 1.1,
-        minHeight: 0.1,
-      }),
-    )
-
-    const build = (
-      points: readonly { x: number; z: number }[],
-      scaleRange: [number, number],
-      yOffset: number,
-      alignToSlope = false,
-    ) =>
-      points.map((point) => {
-        const height = terrain.height(point.x, point.z)
-        const rotationY = rand() * Math.PI * 2
-
-        if (!alignToSlope) {
-          return {
-            position: [point.x, height + yOffset, point.z] as [number, number, number],
-            rotationY,
-            scale: scaleRange[0] + rand() * (scaleRange[1] - scaleRange[0]),
-          }
-        }
-
-        // Lean the prop into the hillside so it never appears to float.
-        const normal = terrain.normal(point.x, point.z)
-        return {
-          position: [point.x, height + yOffset, point.z] as [number, number, number],
-          rotationY,
-          rotationX: Math.atan2(normal.z, normal.y) * 0.6,
-          rotationZ: -Math.atan2(normal.x, normal.y) * 0.6,
-          scale: scaleRange[0] + rand() * (scaleRange[1] - scaleRange[0]),
-        }
-      })
-
-    return {
-      trunks: build(treePoints, [0.85, 1.3], 0, true),
-      canopies: build(treePoints, [0.8, 1.35], 2.05, true),
-      rocks: build(rockPoints, [0.6, 1.5], 0.15, true),
-      grass: build(grassPoints, [0.7, 1.4], 0.25, true),
-      flowers: build(flowerPoints, [0.8, 1.5], 0.5, false),
-    }
-  }, [island, terrain])
+  // Deterministic and cached per island, so travel does not re-scatter it.
+  const data = useMemo(() => getVegetationData(island, terrain), [island, terrain])
 
   const qualityScale = quality === 'low' ? 0.45 : quality === 'medium' ? 0.75 : 1
   const trim = <T,>(items: T[], factor: number): T[] =>
@@ -164,35 +93,41 @@ export function Vegetation({ shadows, island, terrain }: EnvironmentProps) {
  * travelling back to an island reuses the same buffers.
  */
 export function Terrain({ terrain }: EnvironmentProps) {
-  const geometry = useMemo(() => terrain.buildGeometry(110), [terrain])
+  const quality = useSettingsStore((s) => s.quality)
+  const geometry = useMemo(
+    () => terrain.buildGeometry(TERRAIN_SEGMENTS[quality]),
+    [terrain, quality],
+  )
 
   return (
     <mesh geometry={geometry} material={TERRAIN_MATERIAL} receiveShadow castShadow dispose={null} />
   )
 }
 
-/** Flat-shaded path discs following the footpath samples. */
+/** Flat-shaded path discs following the footpath samples, in one draw call. */
 export function IslandPath({ island, terrain }: EnvironmentProps) {
-  const points = useMemo(() => terrain.samplePath(island.path, 10), [island, terrain])
+  const instances = useMemo(() => {
+    const points = terrain.samplePath(island.path, 10)
+    return points.map((point, index) => ({
+      position: [point.x, point.y + 0.06, point.z] as [number, number, number],
+      rotationY: (index % 5) * 0.6,
+      scale: 1.15,
+    }))
+  }, [island, terrain])
+
   const material = useMemo(
     () => matteMaterial('path', PROP_COLORS.path, undefined, island.id),
     [island.id],
   )
 
   return (
-    <group>
-      {points.map((point, index) => (
-        <mesh
-          key={`path-${index}`}
-          geometry={Geometries.pathDisc()}
-          material={material}
-          position={[point.x, point.y + 0.06, point.z]}
-          scale={1.15}
-          receiveShadow
-          rotation={[0, (index % 5) * 0.6, 0]}
-        />
-      ))}
-    </group>
+    <InstancedProp
+      instances={instances}
+      geometry={Geometries.pathDisc()}
+      material={material}
+      castShadow={false}
+      receiveShadow
+    />
   )
 }
 

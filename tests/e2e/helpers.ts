@@ -123,7 +123,7 @@ export async function openJournal(page: Page): Promise<void> {
   if (await mobileButton.isVisible()) {
     await mobileButton.click()
   } else {
-    await page.getByRole('button', { name: 'Journal' }).click()
+    await page.getByRole('button', { name: 'Journal', exact: true }).click()
   }
 
   await expect(page.getByRole('dialog', { name: 'Discovery journal' })).toBeVisible()

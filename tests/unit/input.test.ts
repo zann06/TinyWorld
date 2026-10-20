@@ -57,6 +57,15 @@ describe('readMoveVector', () => {
   it('ignores unrelated keys', () => {
     expect(readMoveVector(['KeyQ', 'ShiftLeft'])).toEqual(EMPTY_MOVE_VECTOR)
   })
+
+  it('writes into a reusable target', () => {
+    const target = { ...EMPTY_MOVE_VECTOR }
+    expect(readMoveVector(['KeyW'], target)).toBe(target)
+    expect(target.forward).toBe(true)
+
+    expect(readMoveVector([], target)).toBe(target)
+    expect(target.forward).toBe(false)
+  })
 })
 
 describe('moveVectorToInput', () => {
@@ -88,6 +97,14 @@ describe('moveVectorToInput', () => {
       x: 0,
       z: 0,
     })
+  })
+
+  it('writes into a reusable target', () => {
+    const target = { x: 0, z: 0 }
+    expect(
+      moveVectorToInput({ forward: true, back: false, left: false, right: false }, target),
+    ).toBe(target)
+    expect(target).toEqual({ x: 0, z: 1 })
   })
 })
 
@@ -211,5 +228,18 @@ describe('useKeyboardControls', () => {
     press('ArrowUp')
     window.dispatchEvent(new Event('blur'))
     expect(movementState.pressed.size).toBe(0)
+  })
+
+  it('clears smoothed velocity and facing when movement resets', () => {
+    movementState.velocity.x = 4
+    movementState.velocity.z = -2
+    movementState.speed = 4.5
+    movementState.facing = 1.2
+
+    resetMovementState()
+
+    expect(movementState.velocity).toEqual({ x: 0, z: 0 })
+    expect(movementState.speed).toBe(0)
+    expect(movementState.facing).toBe(0)
   })
 })

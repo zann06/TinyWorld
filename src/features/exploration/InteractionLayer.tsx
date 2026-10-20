@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { BookOpen, Camera, Hand, Keyboard, MousePointer2, Sparkles, X } from 'lucide-react'
+import {
+  BookOpen,
+  Camera,
+  Hand,
+  Keyboard,
+  MousePointer2,
+  ScrollText,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { CATEGORY_LABELS, getObjectById } from '@/data/objects'
 import { promptLabel } from '@/game/interaction/interaction'
+import { legacyProgress } from '@/game/quest/legacy'
 import { useActiveDiscoveries, useActiveIsland, useGameStore } from '@/store/game-store'
 import { useUiStore } from '@/store/ui-store'
 import { useSettingsStore } from '@/store/settings-store'
@@ -19,8 +29,10 @@ export function InteractionLayer() {
   const panelOpen = useGameStore((s) => s.panelOpen)
   const island = useActiveIsland()
   const discoveries = useActiveDiscoveries()
+  const discoveriesByIsland = useGameStore((s) => s.discoveriesByIsland)
   const interact = useGameStore((s) => s.interact)
   const closePanel = useGameStore((s) => s.closePanel)
+  const legacy = legacyProgress(discoveriesByIsland)
 
   const reducedMotion = useSettingsStore((s) => s.reducedMotion)
   const openOverlay = useUiStore((s) => s.openOverlay)
@@ -102,6 +114,14 @@ export function InteractionLayer() {
           </button>
           <button
             type="button"
+            onClick={() => openOverlay('journal')}
+            aria-label={`Legacy ${legacy.completed}/${legacy.total} steps complete`}
+            className="flex items-center gap-1.5 rounded-full bg-sun/25 px-2.5 py-1 font-semibold text-cream transition hover:bg-sun/35"
+          >
+            <ScrollText size={13} aria-hidden="true" /> Legacy {legacy.completed}/{legacy.total}
+          </button>
+          <button
+            type="button"
             onClick={() => useGameStore.getState().setPhotoMode(true)}
             className="flex items-center gap-1.5 rounded-full bg-cream/15 px-2.5 py-1 font-semibold text-cream transition hover:bg-cream/25"
           >
@@ -126,6 +146,17 @@ export function InteractionLayer() {
             className="rounded-full p-2 text-cream transition hover:bg-cream/15"
           >
             <Camera size={17} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => openOverlay('journal')}
+            aria-label={`Legacy ${legacy.completed}/${legacy.total} steps complete`}
+            className="relative rounded-full p-2 text-cream transition hover:bg-cream/15"
+          >
+            <ScrollText size={17} aria-hidden="true" />
+            <span className="absolute -top-0.5 -right-0.5 rounded-full bg-sun px-1 font-mono text-[9px] leading-4 font-bold text-deep">
+              {legacy.completed}
+            </span>
           </button>
           <span className="px-1 text-xs font-semibold text-muted-dark">
             {discoveries.length} found

@@ -1,0 +1,126 @@
+import type { WorldObjectDef } from '@/types'
+
+/**
+ * Every discoverable / interactable object on Hearthfall Isle.
+ *
+ * The island is the end of the "Legacy" trail: the first people to settle the
+ * three islands left a hearth, a record wall and a bell, and each landmark is
+ * one part of that story rather than a separate attraction.
+ */
+export const HEARTHFALL_OBJECTS: readonly WorldObjectDef[] = [
+  {
+    id: 'first-hearth',
+    name: 'The First Hearth',
+    category: 'landmark',
+    summary: 'A ring of fire-blackened stones at the centre of the island.',
+    description:
+      'The First Hearth is older than every other structure on the three islands. Its stones are scorched on the inside only, which means the fire was lit here for a long time before anyone built a roof to shelter it. The ash is still dry in the middle.',
+    position: { x: 4, y: 0, z: -2 },
+    radius: 3.2,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Kneel at the hearth',
+    visual: 'hearth',
+    lore: 'The fire was kept alive for eleven winters before the first house was built.',
+  },
+  {
+    id: 'record-wall',
+    name: 'The Record Wall',
+    category: 'landmark-feature',
+    summary: 'A low wall covered in names, tides and tally marks.',
+    description:
+      'Every family that arrived added a line to the Record Wall. The oldest carvings are nearly worn away; the newest are only a few decades old. Read together, they are less a history than a guest book kept by people who meant to stay.',
+    position: { x: 16, y: 0, z: 10 },
+    radius: 3.4,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Trace the carved names',
+    visual: 'record-wall',
+    lore: 'Twenty-six names. The same number as the landmarks across the three islands.',
+  },
+  {
+    id: 'tide-bell',
+    name: 'The Tide Bell',
+    category: 'structure',
+    summary: 'A bronze bell on a driftwood frame, rung for weather and for the dead.',
+    description:
+      'The Tide Bell was cast from a broken ship’s fitting and hung where the path meets the water. It was rung once for a safe return and twice for a loss. The rope has been replaced many times; the bell itself has never been moved.',
+    position: { x: -24, y: 0, z: 18 },
+    radius: 2.8,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Ring the tide bell',
+    visual: 'tide-bell',
+  },
+  {
+    id: 'founders-cairn',
+    name: "The Founders' Cairn",
+    category: 'landmark',
+    summary: 'A small cairn with a flat stone shaped like a doorway.',
+    description:
+      'The Founders’ Cairn was raised on the day the first hearth was lit. Each later generation added one stone, but the flat doorway stone at the top has not been touched. Looking through it frames the bay the settlers first came from.',
+    position: { x: -14, y: 0, z: -16 },
+    radius: 2.8,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Look through the doorway stone',
+    visual: 'cairn',
+  },
+  {
+    id: 'driftwood-gate',
+    name: 'The Driftwood Gate',
+    category: 'structure',
+    summary: 'A gate built from storm wood, standing where no fence remains.',
+    description:
+      'The gate once marked the edge of the first cultivated ground. The fence is gone and the fields have gone back to grass, but the gate still stands square. Walking through it is the closest thing the island has to a ceremony.',
+    position: { x: 10, y: 0, z: 22 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Walk through the gate',
+    visual: 'arch',
+  },
+  {
+    id: 'warm-spring',
+    name: 'The Warm Spring',
+    category: 'nature',
+    summary: 'A spring that steams faintly even on the coldest mornings.',
+    description:
+      'The Warm Spring is the reason the first settlers chose this island. It has never frozen and never run dry. The stone basin around it was built later, but the channel that carries the overflow down to the sea is older than the wall.',
+    position: { x: -20, y: 0, z: 6 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Warm your hands',
+    visual: 'spring',
+  },
+  {
+    id: 'keeper-camp',
+    name: "The Keeper's Camp",
+    category: 'structure',
+    summary: 'A tent, a fire ring and a stack of driftwood kept ready.',
+    description:
+      'Whoever tends the hearth and the bell sleeps here. The camp is never empty for long: the fire is banked, the water jar is full, and a spare blanket is folded on the log seat for the next keeper.',
+    position: { x: 22, y: 0, z: -12 },
+    radius: 3,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Bank the fire',
+    visual: 'camp',
+  },
+  {
+    id: 'survey-marker',
+    name: 'The Survey Marker',
+    category: 'landmark-feature',
+    summary: 'A weathered post whose arrows point at the other two islands.',
+    description:
+      'The Survey Marker was placed when the three islands still thought of themselves as one place. One arrow points to Greenhaven, one to Cairnmoor, and the third points out to open water where a fourth island was once expected.',
+    position: { x: -2, y: 0, z: 14 },
+    radius: 2.2,
+    discoverable: true,
+    interactable: true,
+    actionLabel: 'Read the bearings',
+    visual: 'signpost',
+    lore: 'Greenhaven 14 km · Cairnmoor 9 km · the fourth island: unknown.',
+  },
+]

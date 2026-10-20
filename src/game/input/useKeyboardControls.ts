@@ -21,7 +21,11 @@ export const movementState = {
   distance: 34,
   /** Player world position. */
   player: { x: -26, z: 22 },
-  /** Set while the player is actively moving, for the avatar animation. */
+  /** Smoothed planar velocity, in world units per second. */
+  velocity: { x: 0, z: 0 },
+  /** Direction the avatar should face, in radians. */
+  facing: 0.6,
+  /** Current planar speed, used by the avatar animation. */
   speed: 0,
   /** Accumulated look delta consumed once per frame. */
   pendingYawDelta: 0,
@@ -39,7 +43,10 @@ export function resetMovementState(): void {
   movementState.pendingYawDelta = 0
   movementState.pendingPitchDelta = 0
   movementState.pendingZoomDelta = 0
+  movementState.velocity.x = 0
+  movementState.velocity.z = 0
   movementState.speed = 0
+  movementState.facing = 0
   movementState.dragging = false
 }
 

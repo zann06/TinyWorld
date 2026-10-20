@@ -22,7 +22,7 @@ export interface InteractionOutcome {
   /** When true, this interaction marks the object as discovered. */
   discovers: boolean
   /** Optional world-state effect key consumed by the scene. */
-  effect?: 'light-lantern' | 'stoke-fire' | 'splash-spring' | 'turn-sails'
+  effect?: 'light-lantern' | 'stoke-fire' | 'splash-spring' | 'turn-sails' | 'ring-bell'
 }
 
 const KIND_BY_CATEGORY: Record<WorldObjectDef['category'], InteractionKind> = {
@@ -41,6 +41,10 @@ const EFFECT_BY_ID: Record<string, InteractionOutcome['effect']> = {
   windmill: 'turn-sails',
   'drift-camp': 'stoke-fire',
   'cold-seep': 'splash-spring',
+  'first-hearth': 'stoke-fire',
+  'warm-spring': 'splash-spring',
+  'keeper-camp': 'stoke-fire',
+  'tide-bell': 'ring-bell',
 }
 
 /** Every discoverable object id, across every island. */

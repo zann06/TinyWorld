@@ -57,6 +57,7 @@ function resetStores(): void {
     fireStoked: false,
     springTouched: false,
     sailsTurned: 0,
+    bellRung: false,
   })
 }
 
@@ -357,6 +358,42 @@ describe('game store actions', () => {
     expect(useWorldEffects.getState().fireStoked).toBe(true)
     useGameStore.getState().interact('camp')
     expect(useWorldEffects.getState().fireStoked).toBe(true)
+  })
+
+  it('announces the first Legacy step when its landmark is discovered', () => {
+    useGameStore.getState().interact('boardwalk')
+
+    expect(useGameStore.getState().toasts.map((toast) => toast.title)).toContain(
+      'Legacy — The First Mark',
+    )
+  })
+
+  it('announces the gap-filling step when earlier out-of-order discoveries exist', () => {
+    useGameStore.setState({
+      activeIslandId: 'cairnmoor',
+      discoveriesByIsland: {
+        greenhaven: [{ id: 'boardwalk', discoveredAt: 1 }],
+        hearthfall: [{ id: 'first-hearth', discoveredAt: 2 }],
+      },
+    })
+
+    useGameStore.getState().interact('cairn')
+
+    const titles = useGameStore.getState().toasts.map((toast) => toast.title)
+    expect(titles).toContain('Legacy — The Watchers')
+    expect(titles).not.toContain('Legacy — The First Fire')
+  })
+
+  it('does not advance Legacy out of order', () => {
+    useGameStore.getState().setActiveIsland('hearthfall')
+    useGameStore.getState().interact('tide-bell')
+
+    expect(useGameStore.getState().toasts.map((toast) => toast.title)).not.toContain(
+      'Legacy — The First Mark',
+    )
+    expect(useGameStore.getState().toasts.some((toast) => toast.title.startsWith('Legacy'))).toBe(
+      false,
+    )
   })
 
   it('opens a panel and selects the object', () => {

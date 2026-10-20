@@ -2,7 +2,7 @@
   "name": "tinyworld",
   "private": false,
   "version": "0.1.0",
-  "description": "TinyWorld — an open-source, browser-based 3D miniature exploration game with two procedurally generated islands.",
+  "description": "TinyWorld — an open-source, browser-based 3D miniature exploration game with three procedurally generated islands.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b --noEmit && vite build",
+    "budget": "node scripts/check-bundle-budget.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -24,7 +25,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "screenshots": "node scripts/capture-screenshots.mjs",
-    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build"
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run budget"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",

@@ -30,10 +30,11 @@ main.tsx
               ├─ TopBar                  brand + island switcher + progress + settings
               ├─ Suspense                falls back while the 3D chunk downloads
               │   └─ WorldCanvas         <Canvas> + input + interaction layer
-              │       ├─ IslandScene     one island, keyed on the island id
-              │       │   ├─ TimeBasedLighting
-              │       │   ├─ SkyDome / Water / Terrain / IslandPath / Vegetation
-              │       │   ├─ InteractiveObjects   raycast selection + models
+              │       ├─ IslandScene     every mounted island, one visible
+              │       │   ├─ TimeBasedLighting / SkyDome   shared
+              │       │   ├─ IslandEnvironment (per mounted island)
+              │       │   │   └─ Water / Terrain / IslandPath / Vegetation
+              │       │   ├─ InteractiveObjects   active island only
               │       │   ├─ PlayerAvatar
               │       │   └─ CameraRig       movement + follow camera
               │       └─ RendererBridge      exposes the renderer to photo mode
@@ -52,25 +53,44 @@ main.tsx
 
 ## Islands
 
-TinyWorld has more than one island, and **nothing outside `src/data/islands.ts`
+TinyWorld has three islands, and **nothing outside `src/data/islands.ts`
 branches on which one is active**. An `IslandDefinition` carries everything
 needed to stand on one island: radius, spawn point, coastline harmonics, terrain
 shape, palette, footpath, obstacles, decorative scatter and its landmarks.
 
-Two rules keep that honest:
+Three rules keep that honest:
 
 - **Terrain is built by a factory, not a global.** `createTerrain(island)`
   returns functions bound to that island in a closure. Nothing reads module-level
-  "current island" state, so two terrains can coexist and every function stays
+  "current island" state, so several terrains can coexist and every function stays
   pure and unit-testable.
-- **Scene components take the island as a prop.** `IslandScene` is rendered with
-  `key={island.id}`, so travelling remounts it and the instanced vegetation is
-  regenerated rather than left over from the island you just left. The terrain
-  geometry is cached per island definition, so a return visit reuses its mesh.
+- **Visited islands stay mounted.** `WorldCanvas` tracks a set of mounted island
+  ids. `IslandScene` renders one `IslandEnvironment` per mounted id and toggles
+  `visible`; travelling does not remount the canvas or rebuild instanced props.
+  Shared systems (lighting, sky, player, camera) follow the active island, while
+  `InteractiveObjects` only exists for the active one.
+- **Preparation is explicit.** `prepareIsland` builds terrain geometry and samples
+  the footpath; `scheduleIslandPreparation` runs it during idle time and reports
+  each finished island back to `WorldCanvas`, which mounts it ahead of the first
+  visit. A trip therefore lands on an already-built environment.
 
 Progress and the saved player position are both keyed by island id. Stored
 progress moved to version 2 (`{ version: 2, islands: { … } }`); a version 1 save
 is migrated by bucketing each entry under the island that owns it.
+
+## Legacy campaign
+
+`src/data/quests.ts` declares the five-step Legacy trail as ordered
+`{ islandId, objectId }` pairs. `legacyProgress` in `src/game/quest/legacy.ts`
+derives progress from `discoveriesByIsland`, walking the steps in order and
+stopping at the first undiscovered one.
+
+Deliberately, quest state is **not stored separately**. It cannot drift from the
+per-island discovery counters, needs no save migration, and clearing one island's
+progress updates the campaign automatically. The store emits a toast when a
+discovery advances or completes the trail, and `LegacyPanel` renders the step
+list in the journal with a travel shortcut to the island holding the current
+step.
 
 ## State
 
@@ -84,7 +104,7 @@ unrelated selectors:
 - **`ui-store`** — which blocking overlay is open. `blocking` freezes world
   input while a dialog owns the screen.
 - **`world-effects`** — transient scene state produced by interactions (a lit
-  lantern, a stoked fire).
+  lantern, a stoked fire, a rung tide bell).
 
 Per-frame state deliberately does **not** live in any store. `movementState`
 in `src/game/input/useKeyboardControls.ts` is a plain mutable object read and
@@ -107,7 +127,7 @@ WorldObjectDef
 Adding a landmark therefore touches exactly two files: the island's landmark
 list and a new component in `ObjectVisual.tsx`. Three unit tests guard the edges:
 a declared object with no registered visual fails, a landmark placed below the
-waterline fails, and an object id claimed by two islands fails.
+waterline fails, and an object id claimed by two entries fails.
 
 `src/data/islands.ts` holds the island definitions. `src/data/world.ts` holds
 only the coastline maths, parameterised by a `CoastShape`. `coastlineRadius`
@@ -175,12 +195,27 @@ between islands never loses either one's position.
 - Built terrain geometry is cached per island definition in
   `src/world/terrain/terrain.ts`. The mesh opts out of R3F's unmount disposal so
   the cached buffers stay valid between visits.
-- Quality presets change device pixel ratio, shadow type, shadow map size and
-  decoration density.
+- Scatter transforms are cached per island in
+  `src/world/scenes/vegetation-data.ts`, so travelling does not re-run thousands
+  of height and slope samples.
+- Visited islands remain mounted and only swap visibility, so travel does not
+  rebuild instanced props or upload their buffers again.
+- `src/world/prepare-island.ts` warms the other islands during idle time, one
+  island per slice, after the active scene has settled, and reports each prepared
+  island back to `WorldCanvas` so it can be mounted before the player arrives.
+- Path discs render as one instanced mesh instead of one mesh per sample.
+- Quality presets change device pixel ratio, shadow type, shadow map size,
+  decoration density and terrain tessellation (`TERRAIN_SEGMENTS`).
+- The frame loop reuses scratch vectors and input objects instead of allocating
+  per frame. Time-of-day lighting is only recomputed when the preset actually
+  changes, so a static scene does no lighting maths or colour allocation.
 - The 3D world is a lazy chunk (`React.lazy` in `App.tsx`), so the interface
-  paints from a ~133 kB gzipped shell. Three.js is split into its own cacheable
-  chunk (~187 kB gzipped) and neither it nor the scene chunk is preloaded with
+  paints from a ~132 kB gzipped shell. Three.js is split into its own cacheable
+  chunk (~181 kB gzipped) and neither it nor the scene chunk is preloaded with
   the entry HTML.
+- `scripts/check-bundle-budget.mjs` (`npm run budget`) enforces gzipped caps for
+  the total JavaScript, the entry shell, the scene chunk, Three.js and CSS, so a
+  size regression fails CI instead of passing silently.
 - Nothing calls `setState` from `useFrame`.
 
 ## Adding a landmark
@@ -191,7 +226,7 @@ between islands never loses either one's position.
 3. If it should block movement, add a radius to that island's `obstacles` in
    `src/data/islands.ts`.
 4. Run `npm test`. A missing visual, a landmark below the waterline, or an id
-   claimed by two islands all fail the suite.
+   claimed by two entries all fail the suite.
 
 The scene, journal, directory, interaction prompt, progress and persistence all
 pick it up with no further changes.
@@ -200,6 +235,11 @@ pick it up with no further changes.
 
 Add one entry to `ISLANDS` in `src/data/islands.ts`. It must supply a unique id,
 a coastline, a height field, a palette, a spawn point, a footpath, obstacles,
-scatter clusters and at least one landmark. Nothing outside that file — and the
-new landmark file — needs to change: the switcher, storage, the directory and the
-scene all read from the island definition.
+scatter clusters and at least eight landmarks. Add the landmark list under
+`src/data/islands/`, plus any new visual keys in `visual-registry.ts` and
+interaction effects in `src/game/interaction/interaction.ts`.
+
+The switcher, storage, the directory, the journal and the scene all read from the
+island definition, so no component needs an island-specific branch. The
+data-integrity tests run once per island and will report missing landmark,
+terrain, path or spawn constraints.

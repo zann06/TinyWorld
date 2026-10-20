@@ -7,11 +7,11 @@
 
 **Play online:** <https://zann06.github.io/TinyWorld/>
 
-TinyWorld is an open-source, browser-based 3D exploration game. Two islands —
-Greenhaven and Cairnmoor — each rendered in real time with WebGL 2. Walk the
-coast path, read the signpost, light the watchtower lantern, stoke the campfire,
-drink from the spring, climb to the arch, then take a photograph of the whole
-thing at dusk.
+TinyWorld is an open-source, browser-based 3D exploration game. Three islands —
+Greenhaven, Cairnmoor and Hearthfall — each rendered in real time with WebGL 2.
+Walk the coast path, read the signpost, light the watchtower lantern, stoke the
+campfire, follow the Legacy trail across all three islands, then take a
+photograph of the whole thing at dusk.
 
 ![TinyWorld — Greenhaven Island](docs/screenshots/island-wide.png)
 
@@ -19,14 +19,16 @@ thing at dusk.
 
 ## What it is
 
-Two deliberately composed islands rendered in real time with WebGL 2, eighteen
+Three deliberately composed islands rendered in real time with WebGL 2, twenty-six
 landmarks between them, each with its own story and its own real interaction.
-Switch islands from the header at any time; progress is kept separately for each.
+Switch islands from the header at any time; progress is kept separately for each,
+and the Legacy campaign links a trail of discoveries across all three.
 
-| Island           | Landmarks | Character                                                                                     |
-| ---------------- | --------- | --------------------------------------------------------------------------------------------- |
-| Greenhaven       | 10        | Green, generous, sheltered. A lighthouse, a cottage, a tended garden and a coast path.          |
-| Cairnmoor Isle   | 8         | Smaller, higher, colder and rockier. A beached wreck, a stone cairn and a boathouse.           |
+| Island          | Landmarks | Character                                                                             |
+| --------------- | --------- | ------------------------------------------------------------------------------------- |
+| Greenhaven      | 10        | Green, generous, sheltered. A lighthouse, a cottage, a tended garden and a coast path. |
+| Cairnmoor Isle  | 8         | Smaller, higher, colder and rockier. A beached wreck, a stone cairn and a boathouse.   |
+| Hearthfall Isle | 8         | Remote and volcanic. A first hearth, a record wall, a tide bell and warm springs.      |
 
 ## Screenshots
 
@@ -48,18 +50,23 @@ Switch islands from the header at any time; progress is kept separately for each
 Greenhaven Island — the four images on the top two rows — is the warm, sheltered
 one, with its lighthouse, cottage, garden and coast path. Cairnmoor Isle, on the
 bottom row, is smaller, higher and rockier: a beached wreck, a stone cairn and a
-boathouse among standing stones.
+boathouse among standing stones. Hearthfall Isle continues the journey with a
+first hearth, a record wall and a tide bell.
 
 ## Features
 
-- **Two real 3D islands** — rolling terrain, an irregular coastline with a sheltered
+- **Three real 3D islands** — rolling terrain, an irregular coastline with a sheltered
   bay, beaches, a footpath, forests, rocks and flowers. Everything is generated
   procedurally, so there are no missing assets and no download step. Each island
   has its own height field, palette, scatter seed and landmark set.
-- **Eighteen landmarks** across the two islands, each with a name, category,
+- **Twenty-six landmarks** across the three islands, each with a name, category,
   description and a distinct interaction that changes the world or reveals a story.
-- **An island switcher** in the header. Travel is instant and per-island progress
-  is stored separately, so clearing one island never touches the other.
+- **An island switcher** in the header. Travel is instant, visited islands stay
+  mounted, and per-island progress is stored separately, so clearing one island
+  never touches the others.
+- **The Legacy campaign** — a five-step trail that begins on Greenhaven, continues
+  on Cairnmoor and finishes on Hearthfall. Progress is derived from discoveries,
+  so it can never disagree with the per-island counters.
 - **Discovery progress** that persists locally. 4 of 10, 10 of 10 — progress is
   tracked, deduplicated and survives a refresh.
 - **Hybrid controls** — WASD or arrows to walk, drag to look, wheel to zoom,
@@ -72,8 +79,8 @@ boathouse among standing stones.
   optional slow automatic cycle.
 - **Photo mode** — hide the interface, frame the shot, export the live renderer
   output as a PNG.
-- **Quality settings** (Low / Medium / High) that change pixel ratio, shadows
-  and decoration density live.
+- **Quality settings** (Low / Medium / High) that change pixel ratio, shadows,
+  decoration density and terrain tessellation live.
 - **Synthesised ambient audio** — surf, wind and the occasional bird, generated
   with the Web Audio API. No audio files, no licensing questions.
 - **Persistence you can trust** — every stored value is validated on read, and a
@@ -108,9 +115,9 @@ through `React.lazy`, and the renderer stack is assigned to its own chunk:
 
 | Chunk         | Gzipped | Contains                                               |
 | ------------- | ------- | ------------------------------------------------------ |
-| `index`       | ~133 kB | App shell, stores, dialogs, directory, audio           |
+| `index`       | ~132 kB | App shell, stores, dialogs, directory, audio           |
 | `WorldCanvas` | ~72 kB  | Island scene, terrain, objects, camera, lighting, R3F  |
-| `three`       | ~187 kB | Three.js                                               |
+| `three`       | ~181 kB | Three.js                                               |
 
 Keeping Three.js in a separate chunk means a deployment that only changes game
 code does not invalidate the largest cached asset. Both `WorldCanvas` and
@@ -123,10 +130,11 @@ state during that window is identical to the one shown while the scene builds
 its geometry, so the handover does not flash. If a chunk fails to load, the
 existing error boundary catches it.
 
-Traveling between islands remounts the scene (keyed on the island id), which
-regenerates the instanced vegetation and props. The terrain geometry itself is
-cached per island, so returning to an island reuses its displaced mesh instead
-of rebuilding it.
+Visited islands stay mounted; travel toggles which environment is visible rather
+than remounting the scene. Terrain geometry and scatter transforms are cached per
+island, and idle time after the first scene settles is used to build the other
+islands ahead of time, so a trip reuses geometry that already exists. Lighting,
+the shared sky, the player and the camera switch to the active island.
 
 ## Prerequisites
 
@@ -157,6 +165,7 @@ npm run dev      # http://localhost:5173
 | ----------------------- | ------------------------------------------------ |
 | `npm run dev`           | Vite dev server                                  |
 | `npm run build`         | Type-check and build for production into `dist/` |
+| `npm run budget`        | Check gzipped bundle sizes against the budget    |
 | `npm run preview`       | Serve the production build locally               |
 | `npm run lint`          | ESLint                                           |
 | `npm run lint:fix`      | ESLint with autofix                              |
@@ -168,7 +177,7 @@ npm run dev      # http://localhost:5173
 | `npm run screenshots` | Re-capture the README screenshots (needs `npm run preview` running) |
 | `npm run format` | Prettier write |
 | `npm run format:check` | Prettier check (used by CI) |
-| `npm run verify` | format check + lint + typecheck + unit tests + build |
+| `npm run verify` | format check + lint + typecheck + unit tests + build + budget |
 
 Playwright needs a browser once: `npx playwright install chromium`.
 
@@ -197,11 +206,11 @@ top of the page jumps straight to it.
 src/
   app/         App shell, providers
   components/  UI primitives, layout, feedback
-  features/    exploration, discoveries, settings, photo mode, onboarding
+  features/    exploration, discoveries, quests, settings, photo mode, onboarding
   world/       canvas, scene, terrain, objects, characters, camera, lighting
-  game/        input, collision, interaction, discovery
+  game/        input, collision, interaction, discovery, quest logic
   store/       Zustand stores and persistence
-  data/        island definitions, per-island landmarks, coastline maths
+  data/        island definitions, per-island landmarks, quest definitions, coastline maths
     islands/   one landmark list per island
   lib/         storage, audio, webgl detection, renderer bridge
   types/       shared domain types
@@ -210,7 +219,7 @@ tests/
   components/  React behaviour and accessibility contracts
   e2e/         full journeys, responsive layout, axe-core audits
 docs/          architecture, controls, contribution guide, screenshots
-scripts/       screenshot and release-image capture helpers
+scripts/       screenshot capture and bundle-budget checks
 ```
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the reasoning behind the
@@ -220,8 +229,8 @@ structure, and [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) to contribute.
 
 TinyWorld is data-driven. Adding a landmark touches exactly two files.
 
-**1. Declare it** in the island's landmark list — `src/data/islands/greenhaven-objects.ts`
-or `src/data/islands/cairnmoor-objects.ts`:
+**1. Declare it** in the island's landmark list — `src/data/islands/greenhaven-objects.ts`,
+`src/data/islands/cairnmoor-objects.ts` or `src/data/islands/hearthfall-objects.ts`:
 
 ```ts
 {
@@ -250,27 +259,35 @@ That is all. The scene, the journal, the island directory, the interaction
 prompt, the progress counter and local persistence pick it up automatically.
 Three unit tests guard the edges: a declared object without a registered visual
 fails, a landmark placed below the waterline fails, and an object id claimed by
-two islands fails.
+two entries fails.
 
 To add a **whole new island**, add one entry to `ISLANDS` in
 `src/data/islands.ts` — coastline, height field, palette, footpath, obstacles,
 scatter and landmarks. Nothing outside that file branches on which island is
-active.
+active. A new island also needs a landmark list under `src/data/islands/` and an
+entry in the scatter palette; the data-integrity tests will point out anything
+missing.
+
+To add a **Legacy step**, append to `LEGACY_QUEST.steps` in `src/data/quests.ts`.
+Steps are matched by island id and landmark id in order, so an earlier
+discovery cannot skip ahead.
 
 ## Testing
 
 ```bash
-npm test          # 239 unit and component tests
-npm run test:e2e  # 38 end-to-end tests across desktop and mobile viewports
+npm test          # 289 unit and component tests
+npm run test:e2e  # 42 end-to-end cases; 3 viewport-specific skips, 39 pass
 ```
 
 The end-to-end suite launches a real browser, verifies the scene actually
 renders (it samples canvas pixels rather than trusting that the element exists),
 walks the explorer with the keyboard, performs discoveries, reloads to confirm
-persistence, resets progress behind a confirmation dialog, exports a PNG, and
-runs axe-core against the world view, the settings dialog and the journal.
+persistence, resets progress behind a confirmation dialog, travels back and forth
+across all three islands, follows the Legacy campaign, exports a PNG, and runs
+axe-core against the world view, the settings dialog and the journal.
 
-`npm run verify` runs lint, type-check, unit tests and a production build.
+`npm run verify` runs the format check, lint, type-check, unit tests, a
+production build and the bundle budget.
 
 ## Deployment
 
@@ -321,12 +338,12 @@ static file server.
 - **No external asset loading**, so there are no loading spinners for models and
   no cross-origin asset issues when exporting screenshots.
 - **Three.js is the heaviest dependency.** It ships in its own lazy `three`
-  chunk (~187 kB gzipped), separate from the ~72 kB scene chunk and the ~133 kB
+  chunk (~181 kB gzipped), separate from the ~72 kB scene chunk and the ~132 kB
   interface shell, so it is cached independently of game-code changes.
-- **Switching islands still rebuilds the instanced vegetation.** The terrain
-  mesh is cached per island, but trees, rocks, grass and flowers are scattered
-  and uploaded again on each visit, which can take a beat under software
-  rendering.
+- **Visited islands stay in GPU memory.** Keeping each island mounted is what
+  makes return trips instant, but it trades memory for speed. The bundle and
+  asset-size budget in `npm run budget` guards the download side, not GPU
+  residency.
 - **Audio starts after a user gesture**, as browser autoplay policy requires.
   Nothing is audible until the first click, key press or tap.
 - **Position is saved every four seconds.** Reloading within that window returns
