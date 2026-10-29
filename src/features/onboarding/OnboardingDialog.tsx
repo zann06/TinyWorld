@@ -39,7 +39,10 @@ export function OnboardingDialog({ open, onClose }: OnboardingDialogProps) {
           <h3 className="text-sm font-bold tracking-wide text-forest uppercase">Move</h3>
           <ul className="mt-2 space-y-1.5 text-sm text-muted">
             {touch ? (
-              <li>Drag the joystick at the bottom-left to walk.</li>
+              <>
+                <li>Drag the joystick at the bottom-left to walk.</li>
+                <li>Push the stick to its edge to sprint.</li>
+              </>
             ) : (
               <>
                 <li>
@@ -47,7 +50,9 @@ export function OnboardingDialog({ open, onClose }: OnboardingDialogProps) {
                   <kbd className="rounded bg-forest/10 px-1.5 py-0.5 font-mono text-xs">A</kbd>{' '}
                   <kbd className="rounded bg-forest/10 px-1.5 py-0.5 font-mono text-xs">S</kbd>{' '}
                   <kbd className="rounded bg-forest/10 px-1.5 py-0.5 font-mono text-xs">D</kbd> or
-                  the arrow keys to walk.
+                  the arrow keys to walk. Hold{' '}
+                  <kbd className="rounded bg-forest/10 px-1.5 py-0.5 font-mono text-xs">Shift</kbd>{' '}
+                  to sprint.
                 </li>
                 <li>Drag anywhere on the world to look around. Scroll to zoom.</li>
               </>
@@ -58,6 +63,10 @@ export function OnboardingDialog({ open, onClose }: OnboardingDialogProps) {
         <section>
           <h3 className="text-sm font-bold tracking-wide text-forest uppercase">Discover</h3>
           <ul className="mt-2 space-y-1.5 text-sm text-muted">
+            <li>
+              Follow the golden beacon — it marks the current Legacy objective, and the compass at
+              the top right points the way.
+            </li>
             <li>Click or tap a landmark to open its details.</li>
             <li>
               {touch ? (

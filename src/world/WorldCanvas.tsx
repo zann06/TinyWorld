@@ -5,6 +5,9 @@ import { IslandScene } from '@/world/scenes/IslandScene'
 import { getIsland } from '@/data/islands'
 import { SceneLoader } from '@/features/exploration/SceneLoader'
 import { InteractionLayer } from '@/features/exploration/InteractionLayer'
+import { TravelFade } from '@/features/exploration/TravelFade'
+import { QuestTracker } from '@/features/quests/QuestTracker'
+import { ObjectiveCompass } from '@/features/quests/ObjectiveCompass'
 import { PhotoModeOverlay } from '@/features/photo-mode/PhotoMode'
 import { RendererBridge } from '@/lib/renderer-bridge'
 import { ErrorBoundary } from '@/components/feedback/ErrorBoundary'
@@ -22,6 +25,7 @@ export function WorldCanvas() {
   const quality = useSettingsStore((s) => s.quality)
   const sensitivity = useSettingsStore((s) => s.cameraSensitivity)
   const showHud = useSettingsStore((s) => s.showHud)
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
   const photoMode = useGameStore((s) => s.photoMode)
   const select = useGameStore((s) => s.select)
   const openPanel = useGameStore((s) => s.openPanel)
@@ -177,7 +181,17 @@ export function WorldCanvas() {
       </ErrorBoundary>
 
       <SceneLoader />
-      {photoMode ? <PhotoModeOverlay /> : showHud ? <InteractionLayer /> : null}
+      {photoMode ? (
+        <PhotoModeOverlay />
+      ) : showHud ? (
+        <>
+          <InteractionLayer />
+          <QuestTracker />
+          <ObjectiveCompass />
+        </>
+      ) : null}
+
+      <TravelFade islandId={activeIslandId} reducedMotion={reducedMotion} />
     </div>
   )
 }

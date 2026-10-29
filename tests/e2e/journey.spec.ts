@@ -199,7 +199,7 @@ test.describe('TinyWorld main journey', () => {
     await waitForScene(page)
 
     await openJournal(page)
-    await expect(page.getByText('0 of 8 landmarks discovered')).toBeVisible()
+    await expect(page.getByText('0 of 11 landmarks discovered')).toBeVisible()
     await page.getByRole('button', { name: 'Close Discovery journal' }).click()
 
     // Coming back shows Greenhaven's progress intact.
@@ -208,7 +208,7 @@ test.describe('TinyWorld main journey', () => {
     await waitForScene(page)
 
     await openJournal(page)
-    await expect(page.getByText('1 of 10 landmarks discovered')).toBeVisible()
+    await expect(page.getByText('1 of 13 landmarks discovered')).toBeVisible()
   })
 
   test('keyboard-only navigation reaches every control', async ({ page }) => {

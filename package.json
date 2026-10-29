@@ -1,7 +1,7 @@
 {
   "name": "tinyworld",
   "private": false,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "TinyWorld — an open-source, browser-based 3D miniature exploration game with three procedurally generated islands.",
   "license": "MIT",
   "type": "module",

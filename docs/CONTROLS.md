@@ -3,20 +3,35 @@
 ## Switching islands
 
 The island switcher sits in the top-left of the header, next to the island name.
-It lists every island with its discovery count; choose one to travel. Travel is
-instant, visited islands stay loaded, each island remembers where you left off,
-and clearing progress in settings only affects the island you are standing on.
+It lists every island with its discovery count; choose one to travel. Visited
+islands stay loaded, each island remembers where you left off, and clearing
+progress in settings only affects the island you are standing on. A short fade
+covers each trip so the swap between scenes reads as a moment of travel.
 
-The journal also shows the **Legacy** trail: five discoveries spread across
-Greenhaven, Cairnmoor and Hearthfall, in order. The panel names the current step,
-counts completed steps, and offers a travel button when the next landmark is on
-another island.
+## The objective HUD
+
+The current **Legacy** objective is always visible while you explore:
+
+- The **quest tracker** (top left, under the header) names the current step,
+  explains what to do and which landmark completes it, and offers a travel
+  button when the step is on another island.
+- The **objective compass** (top right) points at the target landmark relative
+  to where you are looking, with the live distance underneath. It only appears
+  while the objective is on the island you are standing on.
+- In the world itself, the target landmark carries a **golden beacon** — a light
+  shaft, a floating diamond and a pulsing ground ring — so the next step can be
+  spotted from across the island.
+
+The journal's Legacy panel still shows the whole trail: five discoveries spread
+across Greenhaven, Cairnmoor and Hearthfall, in order, with completed steps,
+counts and the same travel action.
 
 ## Desktop
 
 | Input                         | Action                                                              |
 | ----------------------------- | ------------------------------------------------------------------- |
 | `W` `A` `S` `D` or arrow keys | Walk. Movement is relative to the camera.                           |
+| `Shift` (held)                | Sprint — about 55% faster than walking.                             |
 | Drag anywhere on the world    | Look around (orbit the camera).                                     |
 | Mouse wheel                   | Zoom out, from close-up (9 units) to a wide island view (62 units). |
 | Click a landmark              | Select it and open its details.                                     |
@@ -33,15 +48,16 @@ text field, so typing in the search box never walks your character.
 
 ## Mobile and tablet
 
-| Input                                | Action                                                     |
-| ------------------------------------ | ---------------------------------------------------------- |
-| Drag the stick (bottom left)         | Walk. The stick is analog, so a short drag is a slow walk. |
-| Drag the world (anywhere else)       | Look around.                                               |
-| Pinch                                | Zoom.                                                      |
-| Tap a landmark                       | Select it and open its details.                            |
-| Tap the action button (bottom right) | Interact with the nearest landmark.                        |
-| Tap the journal button               | Open the discovery journal.                                |
-| Tap the camera button                | Enter photo mode.                                          |
+| Input                                | Action                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| Drag the stick (bottom left)         | Walk. The stick is analog, so a short drag is a slow walk.                    |
+| Push the stick to its edge           | Sprint, the touch equivalent of holding `Shift`.                              |
+| Drag the world (anywhere else)       | Look around.                                                                  |
+| Pinch                                | Zoom.                                                                         |
+| Tap a landmark                       | Select it and open its details.                                               |
+| Tap the action button (bottom right) | Interact with the nearest landmark.                                           |
+| Tap the journal button               | Open the discovery journal.                                                   |
+| Tap the camera button                | Enter photo mode.                                                             |
 
 Touch controls appear automatically on devices with a coarse pointer. The
 object detail panel becomes a bottom sheet that can be dismissed by tapping the

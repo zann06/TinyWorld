@@ -17,6 +17,8 @@ import { readResumeSession, useGameStore, writeResumeSession } from '@/store/gam
 
 const PLAYER_RADIUS = 1.15
 const MOVE_SPEED = 11
+/** Sprint multiplier, held with Shift or by pushing the touch stick to its edge. */
+const SPRINT_MULTIPLIER = 1.55
 const MOVE_ACCELERATION = 12
 const MOVE_BRAKING = 16
 const MOVE_STOP_EPSILON = 0.02
@@ -153,7 +155,13 @@ export function CameraRig({ island, onNearbyChange, inputEnabled }: CameraRigPro
       inputZ /= magnitude
     }
 
-    const speed = MOVE_SPEED * magnitude
+    // Sprint: Shift on keyboard, or the touch stick pushed to its edge.
+    const wantsSprint =
+      magnitude > 0.01 &&
+      (movementState.pressed.has('ShiftLeft') ||
+        movementState.pressed.has('ShiftRight') ||
+        movementState.touchSprint)
+    const speed = MOVE_SPEED * magnitude * (wantsSprint ? SPRINT_MULTIPLIER : 1)
     scratch.rawInput.x = inputX
     scratch.rawInput.z = inputZ
     const direction = normaliseInput(scratch.rawInput, movementState.yaw, scratch.direction)

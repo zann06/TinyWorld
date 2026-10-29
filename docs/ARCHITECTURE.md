@@ -92,6 +92,21 @@ discovery advances or completes the trail, and `LegacyPanel` renders the step
 list in the journal with a travel shortcut to the island holding the current
 step.
 
+Three views of the same derived objective keep the campaign readable while
+exploring, with no state of their own:
+
+- **`QuestTracker`** (`src/features/quests/QuestTracker.tsx`) — the always-on
+  objective card under the header, with a travel button when the step is on
+  another island.
+- **`ObjectiveCompass`** (`src/features/quests/ObjectiveCompass.tsx`) — a dial
+  whose needle points at the target landmark. It runs a `requestAnimationFrame`
+  loop against `movementState` (pure math in `src/game/quest/objective.ts`,
+  using the same screen-space basis as the movement code) and never re-renders
+  React for movement.
+- **`ObjectiveBeacon`** (`src/world/objects/ObjectiveBeacon.tsx`) — a light
+  shaft, floating diamond and ground ring over the target landmark, drawn in
+  the active island's scene only.
+
 ## State
 
 Four stores, deliberately split so that unrelated changes do not invalidate

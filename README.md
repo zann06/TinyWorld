@@ -19,16 +19,18 @@ photograph of the whole thing at dusk.
 
 ## What it is
 
-Three deliberately composed islands rendered in real time with WebGL 2, twenty-six
-landmarks between them, each with its own story and its own real interaction.
-Switch islands from the header at any time; progress is kept separately for each,
-and the Legacy campaign links a trail of discoveries across all three.
+Three deliberately composed islands rendered in real time with WebGL 2,
+thirty-five things to find between them — twenty-six landmarks, each with its
+own story and its own real interaction, plus nine collectible keepsakes hidden
+slightly off the path. Switch islands from the header at any time; progress is
+kept separately for each, and the Legacy campaign links a trail of discoveries
+across all three, tracked by an always-visible objective HUD.
 
-| Island          | Landmarks | Character                                                                             |
-| --------------- | --------- | ------------------------------------------------------------------------------------- |
-| Greenhaven      | 10        | Green, generous, sheltered. A lighthouse, a cottage, a tended garden and a coast path. |
-| Cairnmoor Isle  | 8         | Smaller, higher, colder and rockier. A beached wreck, a stone cairn and a boathouse.   |
-| Hearthfall Isle | 8         | Remote and volcanic. A first hearth, a record wall, a tide bell and warm springs.      |
+| Island          | Landmarks | Keepsakes | Character                                                                              |
+| --------------- | --------- | --------- | -------------------------------------------------------------------------------------- |
+| Greenhaven      | 10        | 3         | Green, generous, sheltered. A lighthouse, a cottage, a tended garden and a coast path.  |
+| Cairnmoor Isle  | 8         | 3         | Smaller, higher, colder and rockier. A beached wreck, a stone cairn and a boathouse.    |
+| Hearthfall Isle | 8         | 3         | Remote and volcanic. A first hearth, a record wall, a tide bell and warm springs.       |
 
 ## Screenshots
 
@@ -61,17 +63,23 @@ first hearth, a record wall and a tide bell.
   has its own height field, palette, scatter seed and landmark set.
 - **Twenty-six landmarks** across the three islands, each with a name, category,
   description and a distinct interaction that changes the world or reveals a story.
-- **An island switcher** in the header. Travel is instant, visited islands stay
-  mounted, and per-island progress is stored separately, so clearing one island
-  never touches the others.
+- **Nine collectible keepsakes** — three shells, shards and totems per island,
+  tucked off the path, each with its own micro-story from the islands' history.
+- **An island switcher** in the header. A soft fade covers each trip, visited
+  islands stay mounted, and per-island progress is stored separately, so clearing
+  one island never touches the others.
 - **The Legacy campaign** — a five-step trail that begins on Greenhaven, continues
   on Cairnmoor and finishes on Hearthfall. Progress is derived from discoveries,
   so it can never disagree with the per-island counters.
-- **Discovery progress** that persists locally. 4 of 10, 10 of 10 — progress is
+- **An objective HUD that keeps the quest readable** — an always-visible quest
+  tracker naming the current step, a compass pointing at the target with the live
+  distance, and a golden in-world beacon over the landmark that completes the step.
+- **Discovery progress** that persists locally. 4 of 13, 13 of 13 — progress is
   tracked, deduplicated and survives a refresh.
-- **Hybrid controls** — WASD or arrows to walk, drag to look, wheel to zoom,
-  click to select, `E` to interact. On touch devices, an analog joystick and a
-  large action button appear automatically.
+- **Hybrid controls** — WASD or arrows to walk, hold `Shift` (or push the touch
+  stick to its edge) to sprint, drag to look, wheel to zoom, click to select,
+  `E` to interact. On touch devices, an analog joystick and a large action button
+  appear automatically.
 - **A full DOM interface** — a searchable island directory listing every
   landmark as real HTML, with selection and actions that do not require touching
   the 3D view at all.

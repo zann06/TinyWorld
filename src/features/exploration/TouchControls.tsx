@@ -27,6 +27,7 @@ export function TouchControls() {
     setKnob({ x: 0, y: 0 })
     movementState.touchAxis.x = 0
     movementState.touchAxis.y = 0
+    movementState.touchSprint = false
   }, [])
 
   const moveStick = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -53,6 +54,8 @@ export function TouchControls() {
     // Screen +Y is forward on the stick; the movement code treats +Z as forward.
     movementState.touchAxis.x = dx
     movementState.touchAxis.y = -dy
+    // Pushing the stick to its edge is the touch equivalent of Shift.
+    movementState.touchSprint = magnitude > 0.92
   }, [])
 
   return (

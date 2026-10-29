@@ -9,6 +9,9 @@ import {
   Hearth,
   Lighthouse,
   RecordWall,
+  RelicShard,
+  RelicShell,
+  RelicTotem,
   Signpost,
   Spring,
   TideBell,
@@ -41,6 +44,9 @@ export const OBJECT_VISUALS = {
   hearth: Hearth,
   'record-wall': RecordWall,
   'tide-bell': TideBell,
+  shell: RelicShell,
+  shard: RelicShard,
+  totem: RelicTotem,
 } as const satisfies Record<string, () => React.JSX.Element>
 
 export type VisualKey = keyof typeof OBJECT_VISUALS

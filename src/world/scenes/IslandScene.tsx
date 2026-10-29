@@ -3,6 +3,7 @@ import type { IslandDefinition } from '@/types'
 import { ISLANDS } from '@/data/islands'
 import { IslandPath, SkyDome, Terrain, Vegetation, Water } from '@/world/scenes/Environment'
 import { InteractiveObjects } from '@/world/objects/InteractiveObjects'
+import { ObjectiveBeacon } from '@/world/objects/ObjectiveBeacon'
 import { TimeBasedLighting } from '@/world/lighting/TimeLighting'
 import { LIGHTING_PRESETS } from '@/world/lighting/lighting-presets'
 import { PlayerAvatar } from '@/world/characters/PlayerAvatar'
@@ -109,6 +110,7 @@ export function IslandScene({
       ))}
 
       <InteractiveObjects island={island} terrain={terrain} onSelect={handleSelect} />
+      <ObjectiveBeacon island={island} terrain={terrain} />
       <PlayerAvatar island={island} />
 
       <CameraRig island={island} onNearbyChange={handleNearbyChange} inputEnabled={inputEnabled} />

@@ -15,7 +15,9 @@ export interface PlayerAvatarProps {
  * The explorer avatar.
  *
  * A small low-poly figure with a bobbing idle and a forward lean while moving.
- * Animation runs entirely in the frame loop; no React state is touched.
+ * The gait is driven by an accumulated phase, so the stride naturally quickens
+ * when sprinting. Animation runs entirely in the frame loop; no React state is
+ * touched.
  */
 export function PlayerAvatar({ island }: PlayerAvatarProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -24,6 +26,7 @@ export function PlayerAvatar({ island }: PlayerAvatarProps) {
   const legRightRef = useRef<THREE.Mesh>(null)
   const armLeftRef = useRef<THREE.Mesh>(null)
   const armRightRef = useRef<THREE.Mesh>(null)
+  const gaitPhase = useRef(0)
 
   const terrain = useMemo(() => createTerrain(island), [island])
 
@@ -43,10 +46,15 @@ export function PlayerAvatar({ island }: PlayerAvatarProps) {
 
     const t = state.clock.elapsedTime
     const moving = Math.min(1, movementState.speed / 8)
-    const swing = Math.sin(t * 9) * 0.7 * moving
+
+    // The stride frequency scales with actual speed, so a sprint reads as a
+    // sprint rather than a faster slide with unchanged legs.
+    gaitPhase.current += Math.min(delta, 1 / 20) * (4.2 + movementState.speed * 1.05)
+    const swing = Math.sin(gaitPhase.current) * 0.7 * moving
 
     if (bodyRef.current) {
-      const bob = moving > 0.1 ? Math.abs(Math.sin(t * 9)) * 0.12 : Math.sin(t * 1.9) * 0.035
+      const bob =
+        moving > 0.1 ? Math.abs(Math.sin(gaitPhase.current)) * 0.12 : Math.sin(t * 1.9) * 0.035
       bodyRef.current.position.y = bob
       bodyRef.current.rotation.x = moving * 0.14
     }

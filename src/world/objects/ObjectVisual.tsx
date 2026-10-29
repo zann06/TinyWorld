@@ -1459,3 +1459,116 @@ export function Boathouse() {
     </group>
   )
 }
+
+/**
+ * Collectible keepsakes.
+ *
+ * Small, findable objects that sit slightly off the path. They share one
+ * family — shell, shard, totem — so each island can host a set of three
+ * without needing its own models.
+ */
+
+/** A worn spiral shell with a warm tip. */
+export function RelicShell() {
+  return (
+    <group rotation={[0, 0.45, 0]}>
+      <mesh
+        position={[0, 0.26, 0]}
+        scale={[1, 0.6, 0.82]}
+        castShadow
+        material={matteMaterial('shell-base', '#efe3cf')}
+      >
+        <sphereGeometry args={[0.52, 12, 10]} />
+      </mesh>
+      <mesh
+        position={[0.36, 0.44, 0]}
+        rotation={[0, 0, -0.72]}
+        castShadow
+        material={matteMaterial('shell-tip', '#cfa268')}
+      >
+        <coneGeometry args={[0.19, 0.5, 8]} />
+      </mesh>
+      <mesh
+        position={[-0.08, 0.2, 0.3]}
+        rotation={[0.35, 0, 0]}
+        material={matteMaterial('shell-lip', '#dcc9a5')}
+      >
+        <torusGeometry args={[0.3, 0.045, 6, 14, Math.PI]} />
+      </mesh>
+    </group>
+  )
+}
+
+/** A faintly glowing crystal cluster. */
+export function RelicShard() {
+  const glowRef = useRef<THREE.Mesh>(null)
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
+
+  useFrame((state) => {
+    if (reducedMotion || !glowRef.current) return
+    const material = glowRef.current.material as THREE.MeshBasicMaterial
+    material.opacity = 0.3 + Math.sin(state.clock.elapsedTime * 2.1) * 0.14
+  })
+
+  return (
+    <group>
+      <mesh
+        position={[0, 0.42, 0]}
+        rotation={[0.1, 0.5, -0.08]}
+        castShadow
+        material={matteMaterial('shard-main', '#8fb8a8')}
+      >
+        <coneGeometry args={[0.25, 0.9, 5]} />
+      </mesh>
+      <mesh
+        position={[0.22, 0.24, 0.12]}
+        rotation={[0.28, 0, 0.52]}
+        castShadow
+        material={matteMaterial('shard-side', '#a7c9bb')}
+      >
+        <coneGeometry args={[0.13, 0.48, 5]} />
+      </mesh>
+      <mesh ref={glowRef} position={[0, 0.42, 0]}>
+        <sphereGeometry args={[0.52, 8, 6]} />
+        <meshBasicMaterial
+          color="#bff0dd"
+          transparent
+          opacity={0.35}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+/** A small stacked-stone totem with a carved mark. */
+export function RelicTotem() {
+  return (
+    <group rotation={[0, 0.3, 0]}>
+      <mesh position={[0, 0.18, 0]} castShadow material={matteMaterial('totem-base', '#b9b3a4')}>
+        <cylinderGeometry args={[0.34, 0.42, 0.36, 7]} />
+      </mesh>
+      <mesh
+        position={[0, 0.52, 0]}
+        rotation={[0, 0.5, 0]}
+        castShadow
+        material={matteMaterial('totem-mid', '#a8a294')}
+      >
+        <cylinderGeometry args={[0.26, 0.3, 0.34, 7]} />
+      </mesh>
+      <mesh position={[0, 0.84, 0]} castShadow material={matteMaterial('totem-cap', '#8c8b85')}>
+        <coneGeometry args={[0.23, 0.32, 7]} />
+      </mesh>
+      {/* The carved mark, facing the path */}
+      <mesh
+        position={[0, 0.52, 0.27]}
+        rotation={[0, 0.5, 0]}
+        material={matteMaterial('totem-mark', '#5f6b5a')}
+      >
+        <boxGeometry args={[0.1, 0.2, 0.02]} />
+      </mesh>
+    </group>
+  )
+}

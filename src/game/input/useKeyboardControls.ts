@@ -13,6 +13,8 @@ export const movementState = {
   pressed: new Set<string>(),
   /** Analog joystick input from touch controls, -1..1 on both axes. */
   touchAxis: { x: 0, y: 0 },
+  /** True while the touch stick is pushed to its edge — the touch sprint. */
+  touchSprint: false,
   /** Camera yaw, in radians. Updated by drag-look and touch. */
   yaw: 0.6,
   /** Camera pitch, clamped to a comfortable range. */
@@ -40,6 +42,7 @@ export function resetMovementState(): void {
   movementState.pressed.clear()
   movementState.touchAxis.x = 0
   movementState.touchAxis.y = 0
+  movementState.touchSprint = false
   movementState.pendingYawDelta = 0
   movementState.pendingPitchDelta = 0
   movementState.pendingZoomDelta = 0
@@ -102,6 +105,7 @@ export function useKeyboardControls({ enabled, onAction }: KeyboardControlsOptio
       movementState.pressed.clear()
       movementState.touchAxis.x = 0
       movementState.touchAxis.y = 0
+      movementState.touchSprint = false
     }
 
     window.addEventListener('keydown', handleDown)

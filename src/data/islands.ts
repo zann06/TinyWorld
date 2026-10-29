@@ -19,7 +19,7 @@ export const GREENHAVEN: IslandDefinition = {
   id: 'greenhaven',
   name: 'Greenhaven Island',
   tagline: 'A little world, waiting to be explored.',
-  blurb: 'Ten landmarks, a coast path and a lighthouse that still turns at night.',
+  blurb: 'Ten landmarks, three keepsakes, a coast path and a lighthouse that still turns at night.',
 
   radius: 46,
   terrainHeight: 9.5,
@@ -136,7 +136,8 @@ export const CAIRNMOOR: IslandDefinition = {
   id: 'cairnmoor',
   name: 'Cairnmoor Isle',
   tagline: 'Everything the sea left behind, and someone kept counting.',
-  blurb: 'A beached wreck, a stone cairn and a boathouse that no longer launches.',
+  blurb:
+    'A beached wreck, a stone cairn, a boathouse that no longer launches, and three keepsakes the sea gave back.',
 
   radius: 38,
   terrainHeight: 13,
@@ -238,7 +239,8 @@ export const HEARTHFALL: IslandDefinition = {
   id: 'hearthfall',
   name: 'Hearthfall Isle',
   tagline: 'The first fire on the islands is still waiting.',
-  blurb: 'A first hearth, a record wall and a tide bell left by the people who came before.',
+  blurb:
+    'A first hearth, a record wall, a tide bell and three keepsakes left by the people who came before.',
 
   radius: 42,
   terrainHeight: 10.5,
