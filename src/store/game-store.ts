@@ -8,7 +8,10 @@ import { addDiscovery, discoveredIds, summariseProgress } from '@/game/discovery
 import { resolveInteraction } from '@/game/interaction/interaction'
 import { legacyProgress } from '@/game/quest/legacy'
 import { LEGACY_QUEST } from '@/data/quests'
+import { STORY_FRAGMENTS } from '@/data/story'
+import { storyState } from '@/game/story/story'
 import { useWorldEffects } from '@/world/objects/world-effects'
+import { useUiStore } from '@/store/ui-store'
 
 /** One-shot notification raised by an interaction, consumed by the toast host. */
 export interface ToastPayload {
@@ -182,7 +185,8 @@ export const useGameStore = create<GameStore>()((set, get) => {
         useWorldEffects.getState().apply(outcome.effect)
       }
 
-      const legacyBefore = legacyProgress(get().discoveriesByIsland)
+      const discoveriesBefore = get().discoveriesByIsland
+      const legacyBefore = legacyProgress(discoveriesBefore)
       let isNew = false
       let discoveriesAfter = get().discoveriesByIsland
 
@@ -234,6 +238,24 @@ export const useGameStore = create<GameStore>()((set, get) => {
             title: `Legacy — ${step.title}`,
             description: step.completion,
             variant: 'success',
+          })
+        }
+      }
+
+      // The story journal unlocks alongside the trail. Completion gets the
+      // full-screen epilogue instead of a toast about an entry.
+      const storyBefore = storyState(discoveriesBefore)
+      const storyAfter = storyState(discoveriesAfter)
+      if (legacyAfter.complete && !legacyBefore.complete) {
+        useUiStore.getState().openOverlay('epilogue')
+      } else {
+        for (const fragment of STORY_FRAGMENTS) {
+          if (!storyAfter.unlockedIds.has(fragment.id)) continue
+          if (storyBefore.unlockedIds.has(fragment.id)) continue
+          get().pushToast({
+            title: `Journal — ${fragment.title}`,
+            description: 'A new entry was added to The Story of the Nine.',
+            variant: 'info',
           })
         }
       }

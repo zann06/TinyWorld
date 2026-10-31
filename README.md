@@ -71,6 +71,11 @@ first hearth, a record wall and a tide bell.
 - **The Legacy campaign** — a five-step trail that begins on Greenhaven, continues
   on Cairnmoor and finishes on Hearthfall. Progress is derived from discoveries,
   so it can never disagree with the per-island counters.
+- **A story that reads itself** — the tale of the Nine, the first settlers, told in
+  ten journal fragments that unlock as you follow their route: a prologue, one entry
+  per Legacy step, three keepsake milestones, and an epilogue moment when the trail
+  is finished. Like the quest state, the story is derived from discoveries — there
+  is no second save file to drift out of sync.
 - **An objective HUD that keeps the quest readable** — an always-visible quest
   tracker naming the current step, a compass pointing at the target with the live
   distance, and a golden in-world beacon over the landmark that completes the step.

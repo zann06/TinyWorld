@@ -6,7 +6,7 @@ import { create } from 'zustand'
  * Kept separate from the game store so that opening the journal does not
  * invalidate selectors used by the 3D scene.
  */
-export type OverlayId = 'settings' | 'journal' | 'onboarding' | 'confirm' | null
+export type OverlayId = 'settings' | 'journal' | 'onboarding' | 'confirm' | 'epilogue' | null
 
 interface UiStore {
   overlay: OverlayId

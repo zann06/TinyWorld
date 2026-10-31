@@ -107,6 +107,15 @@ exploring, with no state of their own:
   shaft, floating diamond and ground ring over the target landmark, drawn in
   the active island's scene only.
 
+The **story layer** (`src/data/story.ts`, `src/game/story/story.ts`) applies
+the same discipline to narrative. Ten fragments — a prologue, one entry per
+Legacy step, three keepsake milestones, an epilogue — are unlocked purely by
+deriving from `discoveriesByIsland`; the journal reads them in the settlers'
+chronological order regardless of the order they were found. `StoryPanel`
+renders the entries inside the journal, and the interaction path in
+`game-store` opens the epilogue dialog exactly once, on the interaction that
+completes the campaign. No story state is ever persisted.
+
 ## State
 
 Four stores, deliberately split so that unrelated changes do not invalidate

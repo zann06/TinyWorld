@@ -6,6 +6,7 @@ import { ToastHost } from '@/components/feedback/ToastHost'
 import { SettingsDialog } from '@/features/settings/SettingsDialog'
 import { OnboardingDialog } from '@/features/onboarding/OnboardingDialog'
 import { JournalDialog } from '@/features/discoveries/JournalDialog'
+import { EpilogueDialog } from '@/features/story/EpilogueDialog'
 import { WebGLUnavailable } from '@/features/exploration/WebGLUnavailable'
 import { SceneChunkFallback } from '@/features/exploration/SceneLoader'
 import { TopBar } from '@/components/layout/TopBar'
@@ -90,6 +91,7 @@ function TinyWorldApp() {
       <ToastHost />
       <SettingsDialog open={overlay === 'settings'} onClose={closeOverlay} />
       <JournalDialog open={overlay === 'journal'} onClose={closeOverlay} />
+      <EpilogueDialog open={overlay === 'epilogue'} onClose={closeOverlay} />
       <OnboardingDialog
         open={!onboardingDismissed && overlay === null}
         onClose={handleOnboardingClose}

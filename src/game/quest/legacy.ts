@@ -8,6 +8,8 @@ export interface LegacyProgress {
   stepIndex: number
   /** Sequential steps finished. Out-of-order discoveries do not count yet. */
   completed: number
+  /** Ids of the steps finished, in trail order. */
+  completedStepIds: readonly string[]
   total: number
   complete: boolean
   /** Next step to complete, or null when the campaign is finished. */
@@ -40,6 +42,7 @@ export function legacyProgress(discoveries: DiscoveriesByIsland): LegacyProgress
   return {
     stepIndex,
     completed: stepIndex,
+    completedStepIds: steps.slice(0, stepIndex).map((step) => step.id),
     total: steps.length,
     complete: stepIndex === steps.length,
     current: steps[stepIndex] ?? null,

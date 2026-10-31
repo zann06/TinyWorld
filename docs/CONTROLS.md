@@ -26,6 +26,16 @@ The journal's Legacy panel still shows the whole trail: five discoveries spread
 across Greenhaven, Cairnmoor and Hearthfall, in order, with completed steps,
 counts and the same travel action.
 
+## The story journal
+
+Above the Legacy panel in the journal sits **The Story of the Nine** — the tale
+of the first settlers, told in ten fragments that unlock as you follow their
+route. A prologue is open from the start; each Legacy step, each island's full
+keepsake set, and the finished trail each reveal one more entry, announced with
+a toast when it unlocks. Locked entries show only the island where their entry
+waits. Finishing the campaign opens the epilogue once, and the closing entry
+stays readable in the journal afterwards.
+
 ## Desktop
 
 | Input                         | Action                                                              |
