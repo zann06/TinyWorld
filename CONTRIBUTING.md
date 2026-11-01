@@ -3,6 +3,9 @@
 Thanks for considering a contribution. TinyWorld is small on purpose; the goal
 is a polished exploration experience, not a large feature count.
 
+New here? Start with the [README](README.md) for what the project is and how to
+run it.
+
 ## Getting set up
 
 Requires **Node.js 22.12+** (Node 22 or 24 LTS recommended). Check with:
@@ -75,7 +78,7 @@ wrong, change the rule and explain why in the pull request.
 
 ## Adding a landmark
 
-The short version (full detail in `docs/ARCHITECTURE.md`):
+The short version (full detail in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
 
 1. Add an entry to the island's list in `src/data/islands/<island>-objects.ts`
    with a stable `id`, a `visual` key, a position, a radius and an action label.
@@ -109,8 +112,8 @@ TinyWorld currently ships **no third-party assets** — everything is procedural
 If you add a model, texture, image or sound:
 
 - only use material you are allowed to redistribute,
-- record it in `ASSET_CREDITS.md` with name, creator, source URL, licence and
-  your modifications,
+- record it in [`ASSET_CREDITS.md`](ASSET_CREDITS.md) with name, creator, source
+  URL, licence and your modifications,
 - keep it under `public/assets/{models,textures,audio,icons}/`,
 - do not hotlink from a third-party host at runtime.
 
